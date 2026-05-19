@@ -124,8 +124,45 @@ function renderMarkdown(text) {
     .replace(/^[*-] (.+)$/gm, '<li>$1</li>')
     .replace(/(<li>[\s\S]*?<\/li>\n?)+/g, m => `<ul>${m}</ul>`)
     .replace(/\[(\d+)\]/g, '<span class="bronref">[$1]</span>')
-    .replace(/\n\n/g, '</p><p>')
-    .replace(/^(?!<[hulo])(.+)$/gm, (m) => m.startsWith('<') ? m : m);
+    .replace(/\n\n/g, '</p><p>');
+}
+
+// ── Typewriter wachtrij ────────────────────────────────────────────────────
+function maakTypewriter(tekstvak) {
+  let wachtrij = '';       // binnenkomende tekst
+  let weergegeven = '';    // wat al getoond is
+  let klaar = false;       // stream klaar?
+  let bronnenCallback = null;
+
+  const MS_PER_CHAR = 12; // typsnelheid (ms per karakter)
+
+  function tik() {
+    if (wachtrij.length === 0) {
+      if (klaar) {
+        // Alles getypt — cursor weg, bronnen tonen
+        tekstvak.querySelectorAll('.cursor-knipperen').forEach(e => e.remove());
+        tekstvak.id = '';
+        if (bronnenCallback) bronnenCallback();
+      } else {
+        setTimeout(tik, 30);
+      }
+      return;
+    }
+    // Typ meerdere karakters per tick zodat het vloeiend blijft bij snelle chunks
+    const stap = Math.max(1, Math.min(3, Math.floor(wachtrij.length / 10)));
+    weergegeven += wachtrij.slice(0, stap);
+    wachtrij = wachtrij.slice(stap);
+    tekstvak.innerHTML = `<p>${renderMarkdown(weergegeven)}</p><span class="cursor-knipperen"></span>`;
+    scrollNaarOnder();
+    setTimeout(tik, MS_PER_CHAR);
+  }
+
+  setTimeout(tik, MS_PER_CHAR);
+
+  return {
+    voegToe(tekst) { wachtrij += tekst; },
+    setKlaar(cb) { klaar = true; bronnenCallback = cb; },
+  };
 }
 
 // ── Bericht toevoegen ──────────────────────────────────────────────────────
@@ -186,9 +223,10 @@ document.getElementById('chat-form').addEventListener('submit', async (e) => {
   document.getElementById('chat-btn').disabled = true;
 
   voegGebruikerBerichtToe(vraag);
-  const aiBericht = voegAIBerichtToe();
+  voegAIBerichtToe();
   const tekstvak = document.getElementById('ai-tekst-actief');
   const itemsvak = document.getElementById('ai-items-actief');
+  const typewriter = maakTypewriter(tekstvak);
 
   const form = new FormData();
   form.append('vraag', vraag);
@@ -197,7 +235,7 @@ document.getElementById('chat-form').addEventListener('submit', async (e) => {
   const reader = resp.body.getReader();
   const dec = new TextDecoder();
   let buf = '';
-  let rawText = '';
+  let bronnenData = null;
 
   while (true) {
     const { done, value } = await reader.read();
@@ -210,38 +248,35 @@ document.getElementById('chat-form').addEventListener('submit', async (e) => {
       const data = line.slice(6);
       if (data === '[KLAAR]') break;
       if (data.startsWith('[BRONNEN]')) {
-        const lijst = JSON.parse(data.slice(9));
-        if (lijst.length > 0) {
-          itemsvak.innerHTML = `
-            <div class="bronnen-header">Gevonden items (${lijst.length})</div>
-            <div class="bronnen-kaarten">
-              ${lijst.map(b => `
-                <a href="${b.url}" target="_blank" rel="noopener" class="bron-kaart">
-                  <span class="bron-nr">${b.nr}</span>
-                  <span class="bron-titel">${b.titel || '(geen titel)'}</span>
-                  <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
-                    <path d="M2 10L10 2M10 2H5M10 2v5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
-                  </svg>
-                </a>`).join('')}
-            </div>`;
-        }
+        bronnenData = JSON.parse(data.slice(9));
       } else {
-        rawText += data.replace(/\\n/g, '\n');
-        tekstvak.innerHTML = `<p>${renderMarkdown(rawText)}</p><span class="cursor-knipperen"></span>`;
-        scrollNaarOnder();
+        typewriter.voegToe(data.replace(/\\n/g, '\n'));
       }
     }
   }
 
-  // Verwijder knipperende cursor
-  tekstvak.querySelectorAll('.cursor-knipperen').forEach(el => el.remove());
-  tekstvak.id = '';
-  itemsvak.id = '';
-
-  bezig = false;
-  document.getElementById('chat-btn').disabled = false;
-  input.focus();
-  scrollNaarOnder();
+  // Stream klaar — typewriter typt rest af, daarna bronnen tonen
+  typewriter.setKlaar(() => {
+    itemsvak.id = '';
+    if (bronnenData && bronnenData.length > 0) {
+      itemsvak.innerHTML = `
+        <div class="bronnen-header">Gevonden items (${bronnenData.length})</div>
+        <div class="bronnen-kaarten">
+          ${bronnenData.map(b => `
+            <a href="${b.url}" target="_blank" rel="noopener" class="bron-kaart">
+              <span class="bron-nr">${b.nr}</span>
+              <span class="bron-titel">${b.titel || '(geen titel)'}</span>
+              <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+                <path d="M2 10L10 2M10 2H5M10 2v5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+              </svg>
+            </a>`).join('')}
+        </div>`;
+    }
+    bezig = false;
+    document.getElementById('chat-btn').disabled = false;
+    document.getElementById('chat-input').focus();
+    scrollNaarOnder();
+  });
 });
 
 // ── Textarea auto-resize + send-button activeren ───────────────────────────
