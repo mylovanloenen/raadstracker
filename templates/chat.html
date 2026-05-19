@@ -6,6 +6,12 @@
   <title>Raadstracker — AI Assistent</title>
   <link rel="stylesheet" href="/static/style.css">
   <link rel="stylesheet" href="/static/chat.css">
+  <link rel="manifest" href="/static/manifest.json">
+  <link rel="apple-touch-icon" href="/static/icons/icon-180.png">
+  <meta name="theme-color" content="#003082">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Raadstracker">
 </head>
 <body class="chat-pagina">
 
@@ -292,6 +298,11 @@ document.getElementById('chat-input').addEventListener('keydown', (e) => {
     document.getElementById('chat-form').dispatchEvent(new Event('submit'));
   }
 });
+</script>
+<script>
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('/static/sw.js');
+  }
 </script>
 </body>
 </html>

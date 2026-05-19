@@ -1,0 +1,28 @@
+{
+  "name": "Raadstracker Amsterdam",
+  "short_name": "Raadstracker",
+  "description": "Amsterdamse raadsitems doorzoeken met AI",
+  "start_url": "/chat",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#f9f9f8",
+  "theme_color": "#003082",
+  "icons": [
+    {
+      "src": "/static/icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "/static/icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    },
+    {
+      "src": "/static/icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ]
+}
