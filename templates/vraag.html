@@ -1,0 +1,140 @@
+{% extends "base.html" %}
+{% block title %}Vraag stellen{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <h1>Vraag stellen aan het archief</h1>
+  <p>Claude zoekt in alle raadsitems en beantwoordt je vraag met bronvermelding.</p>
+</div>
+
+<div class="kaart">
+  <div id="chat-geschiedenis" style="margin-bottom:16px;display:flex;flex-direction:column;gap:16px;"></div>
+
+  <form id="vraag-form">
+    <div class="chat-invoer">
+      <textarea id="vraag-input" rows="2"
+        placeholder="Bijv: wat heeft de raad besloten over daklozenopvang dit jaar?"></textarea>
+      <button class="btn btn-primair" type="submit" id="vraag-btn">Vraag</button>
+    </div>
+  </form>
+
+  <div class="lader" id="lader" style="margin-top:12px;"><div class="spinner"></div> Claude zoekt in het archief…</div>
+</div>
+
+<div class="kaart" id="antwoord-kaart" style="display:none;">
+  <div class="output-blok zichtbaar" id="output"></div>
+  <div class="bronnen-lijst" id="bronnen"><h4>Bronnen uit het archief</h4></div>
+</div>
+
+<div style="margin-top:16px;">
+  <p style="font-size:13px;color:var(--grijs);">Voorbeeldvragen:</p>
+  <div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:8px;">
+    {% for v in [
+      'Wat is de status van moties over daklozenopvang?',
+      'Welke schriftelijke vragen zijn gesteld over jeugdzorg?',
+      'Zijn er openstaande termijnen over wonen?',
+      'Wat heeft de SP ingediend afgelopen maand?'
+    ] %}
+    <button class="btn btn-secundair" style="font-size:12px;padding:6px 12px;"
+      onclick="document.getElementById('vraag-input').value='{{ v }}';document.getElementById('vraag-input').focus()">
+      {{ v }}
+    </button>
+    {% endfor %}
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function renderMarkdown(text) {
+  return text
+    .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+    .replace(/^### (.+)$/gm, '<h3>$1</h3>')
+    .replace(/^## (.+)$/gm, '<h2>$1</h2>')
+    .replace(/^# (.+)$/gm, '<h1>$1</h1>')
+    .replace(/^[*-] (.+)$/gm, '<li>$1</li>')
+    .replace(/(<li>.*<\/li>\n?)+/g, m => `<ul>${m}</ul>`);
+}
+
+document.getElementById('vraag-form').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const vraag = document.getElementById('vraag-input').value.trim();
+  if (!vraag) return;
+
+  const output = document.getElementById('output');
+  const lader = document.getElementById('lader');
+  const bronnen = document.getElementById('bronnen');
+  const kaart = document.getElementById('antwoord-kaart');
+  const btn = document.getElementById('vraag-btn');
+  const input = document.getElementById('vraag-input');
+
+  // Voeg vraag toe aan geschiedenis
+  const gesch = document.getElementById('chat-geschiedenis');
+  const vraagEl = document.createElement('div');
+  vraagEl.style.cssText = 'background:var(--blauw-licht);padding:10px 14px;border-radius:8px;font-size:14px;';
+  vraagEl.textContent = vraag;
+  gesch.appendChild(vraagEl);
+
+  output.innerHTML = '';
+  bronnen.className = 'bronnen-lijst';
+  bronnen.innerHTML = '<h4>Bronnen uit het archief</h4>';
+  kaart.style.display = 'none';
+  lader.classList.add('zichtbaar');
+  btn.disabled = true;
+  input.value = '';
+  input.style.height = 'auto';
+
+  const form = new FormData();
+  form.append('vraag', vraag);
+
+  const resp = await fetch('/api/vraag', { method: 'POST', body: form });
+  const reader = resp.body.getReader();
+  const dec = new TextDecoder();
+  let buf = '';
+  let rawText = '';
+
+  lader.classList.remove('zichtbaar');
+  kaart.style.display = 'block';
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    buf += dec.decode(value);
+    const lines = buf.split('\n');
+    buf = lines.pop();
+    for (const line of lines) {
+      if (!line.startsWith('data: ')) continue;
+      const data = line.slice(6);
+      if (data === '[KLAAR]') break;
+      if (data.startsWith('[BRONNEN]')) {
+        const lijst = JSON.parse(data.slice(9));
+        bronnen.innerHTML = '<h4>Bronnen uit het archief</h4>' + lijst.map(b =>
+          `<a href="${b.url}" target="_blank" rel="noopener">[${b.nr}] ${b.titel}</a>`
+        ).join('');
+        bronnen.classList.add('zichtbaar');
+      } else {
+        rawText += data.replace(/\\n/g, '\n');
+        output.innerHTML = renderMarkdown(rawText);
+      }
+    }
+  }
+
+  btn.disabled = false;
+  kaart.scrollIntoView({ behavior: 'smooth', block: 'start' });
+});
+
+// Auto-resize textarea
+document.getElementById('vraag-input').addEventListener('input', function() {
+  this.style.height = 'auto';
+  this.style.height = Math.min(this.scrollHeight, 160) + 'px';
+});
+
+// Enter = submit, Shift+Enter = newline
+document.getElementById('vraag-input').addEventListener('keydown', (e) => {
+  if (e.key === 'Enter' && !e.shiftKey) {
+    e.preventDefault();
+    document.getElementById('vraag-form').dispatchEvent(new Event('submit'));
+  }
+});
+</script>
+{% endblock %}

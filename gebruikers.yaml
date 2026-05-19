@@ -1,0 +1,11 @@
+# Voeg hier raadsleden toe. Wijzigingen worden opgepikt bij de volgende run.
+gebruikers:
+  - naam: Test Raadslid
+    email: test@example.com
+    gemeente: amsterdam
+    actief: true
+    onderwerpen:
+      - wonen en volkshuisvesting
+      - daklozenopvang
+      - jeugdzorg
+      - GVB en openbaar vervoer

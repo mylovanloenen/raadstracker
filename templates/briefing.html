@@ -1,0 +1,109 @@
+{% extends "base.html" %}
+{% block title %}Briefing{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <h1>Pre-meeting briefing</h1>
+  <p>Voer je onderwerpen in en krijg een samenvatting van alles wat in het archief staat.</p>
+</div>
+
+<div class="kaart">
+  <form id="briefing-form">
+    <div class="form-groep">
+      <label for="onderwerpen">Onderwerpen (één per regel of kommagescheiden)</label>
+      <textarea id="onderwerpen" name="onderwerpen" rows="4"
+        placeholder="wonen en volkshuisvesting&#10;daklozenopvang&#10;jeugdzorg&#10;GVB en openbaar vervoer"></textarea>
+    </div>
+    <button class="btn btn-primair" type="submit" id="briefing-btn">
+      Genereer briefing
+    </button>
+  </form>
+</div>
+
+<div class="lader" id="lader"><div class="spinner"></div> Claude doorzoekt het archief…</div>
+
+<div class="kaart" id="resultaat-kaart" style="display:none;">
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+    <h2 style="font-size:16px;font-weight:700;color:var(--blauw);">Briefing</h2>
+    <button class="btn btn-secundair" onclick="kopieer()" style="font-size:12px;padding:6px 12px;">Kopieer tekst</button>
+  </div>
+  <div class="output-blok zichtbaar" id="output"></div>
+  <div class="bronnen-lijst" id="bronnen"><h4>Geraadpleegde stukken</h4></div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function kopieer() {
+  navigator.clipboard.writeText(document.getElementById('output').textContent);
+}
+
+function renderMarkdown(text) {
+  return text
+    .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+    .replace(/^### (.+)$/gm, '<h3>$1</h3>')
+    .replace(/^## (.+)$/gm, '<h2>$1</h2>')
+    .replace(/^# (.+)$/gm, '<h1>$1</h1>')
+    .replace(/^[*-] (.+)$/gm, '<li>$1</li>')
+    .replace(/(<li>.*<\/li>\n?)+/g, m => `<ul>${m}</ul>`);
+}
+
+document.getElementById('briefing-form').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const onderwerpen = document.getElementById('onderwerpen').value.trim();
+  if (!onderwerpen) return;
+
+  const output = document.getElementById('output');
+  const lader = document.getElementById('lader');
+  const bronnen = document.getElementById('bronnen');
+  const kaart = document.getElementById('resultaat-kaart');
+  const btn = document.getElementById('briefing-btn');
+
+  output.innerHTML = '';
+  bronnen.className = 'bronnen-lijst';
+  bronnen.innerHTML = '<h4>Geraadpleegde stukken</h4>';
+  kaart.style.display = 'none';
+  lader.classList.add('zichtbaar');
+  btn.disabled = true;
+  btn.textContent = 'Bezig…';
+
+  const form = new FormData();
+  form.append('onderwerpen', onderwerpen);
+
+  const resp = await fetch('/api/briefing', { method: 'POST', body: form });
+  const reader = resp.body.getReader();
+  const dec = new TextDecoder();
+  let buf = '';
+  let rawText = '';
+
+  lader.classList.remove('zichtbaar');
+  kaart.style.display = 'block';
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    buf += dec.decode(value);
+    const lines = buf.split('\n');
+    buf = lines.pop();
+    for (const line of lines) {
+      if (!line.startsWith('data: ')) continue;
+      const data = line.slice(6);
+      if (data === '[KLAAR]') break;
+      if (data.startsWith('[BRONNEN]')) {
+        const lijst = JSON.parse(data.slice(9));
+        bronnen.innerHTML = '<h4>Geraadpleegde stukken</h4>' + lijst.map(b =>
+          `<a href="${b.url}" target="_blank" rel="noopener">[${b.nr}] ${b.titel}</a>`
+        ).join('');
+        bronnen.classList.add('zichtbaar');
+      } else {
+        rawText += data.replace(/\\n/g, '\n');
+        output.innerHTML = renderMarkdown(rawText);
+      }
+    }
+  }
+
+  btn.disabled = false;
+  btn.textContent = 'Genereer briefing';
+});
+</script>
+{% endblock %}

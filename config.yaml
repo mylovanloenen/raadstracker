@@ -1,0 +1,17 @@
+# Gebruikers en hun dossiers staan in gebruikers.yaml
+relevantie_drempel: 6
+
+bronnen:
+  moties: true
+  schriftelijke_vragen: true
+  ingekomen_stukken: true
+
+termijnen_weken:
+  motie: 13
+  schriftelijke_vraag: 4
+  ingekomen_stuk: 6
+  toezegging: 13
+
+mail:
+  verstuur_tijd: "07:00"
+  max_nieuwe_items: 3

@@ -1,0 +1,110 @@
+{% extends "base.html" %}
+{% block title %}{{ item.titel[:60] if item.titel else 'Item' }}{% endblock %}
+
+{% block content %}
+<div class="kaart">
+  <div class="detail-header">
+    <div style="margin-bottom:10px;">
+      <span class="badge badge-{{ item.type.replace('_', '-') }}">
+        {{ item.type.replace('_', ' ').title() }}
+      </span>
+      {% if item.uitslag %}
+      <span class="badge badge-{{ 'aangenomen' if 'aangenomen' in item.uitslag.lower() else 'verworpen' if 'verworpen' in item.uitslag.lower() else '' }}" style="margin-left:6px;">
+        {{ item.uitslag }}
+      </span>
+      {% endif %}
+    </div>
+    <h1>{{ item.titel or '(geen titel)' }}</h1>
+    <div class="detail-meta">
+      {% if item.indiener %}<span>{{ item.indiener }}</span>{% endif %}
+      {% if item.datum_ingediend %}<span>Ingediend: {{ item.datum_ingediend }}</span>{% endif %}
+      {% if item.termijn_einde %}<span>Termijn: {{ item.termijn_einde }}</span>{% endif %}
+      {% if item.datum_afdoening %}<span>Afgedaan: {{ item.datum_afdoening }}</span>{% endif %}
+    </div>
+  </div>
+
+  {% if item.gekoppeld_evenement %}
+  <div class="detail-veld">
+    <h3>Vergadering</h3>
+    <p>{{ item.gekoppeld_evenement }}</p>
+  </div>
+  {% endif %}
+
+  <div class="detail-veld" style="margin-top:24px;">
+    <a class="btn btn-primair" href="{{ item.bron_url }}" target="_blank" rel="noopener">
+      Bekijk origineel stuk ↗
+    </a>
+    <a class="btn btn-secundair" href="/" style="margin-left:8px;">← Terug naar archief</a>
+  </div>
+</div>
+
+<div class="kaart">
+  <h3 style="font-size:14px;font-weight:700;color:var(--grijs);text-transform:uppercase;margin-bottom:12px;">Snel een vraag stellen over dit item</h3>
+  <form id="snelvraag-form">
+    <div class="chat-invoer">
+      <textarea id="snelvraag" rows="2" placeholder="Bijv: is deze motie inhoudelijk afgedaan of formeel afgemeld?"></textarea>
+      <button class="btn btn-primair" type="submit">Vraag</button>
+    </div>
+  </form>
+  <div class="lader" id="lader"><div class="spinner"></div> Claude denkt na…</div>
+  <div class="output-blok" id="output"></div>
+  <div class="bronnen-lijst" id="bronnen"><h4>Bronnen</h4></div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const itemTitel = {{ item.titel | tojson }};
+const itemType = {{ item.type | tojson }};
+
+document.getElementById('snelvraag-form').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const vraag = document.getElementById('snelvraag').value.trim();
+  if (!vraag) return;
+
+  const volledigeVraag = `Over het volgende raadsitem: "${itemTitel}" (${itemType})\n\nVraag: ${vraag}`;
+
+  const output = document.getElementById('output');
+  const lader = document.getElementById('lader');
+  const bronnen = document.getElementById('bronnen');
+
+  output.textContent = '';
+  output.classList.remove('zichtbaar');
+  bronnen.classList.remove('zichtbaar');
+  lader.classList.add('zichtbaar');
+
+  const form = new FormData();
+  form.append('vraag', volledigeVraag);
+
+  const resp = await fetch('/api/vraag', { method: 'POST', body: form });
+  const reader = resp.body.getReader();
+  const dec = new TextDecoder();
+  let buf = '';
+
+  lader.classList.remove('zichtbaar');
+  output.classList.add('zichtbaar');
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    buf += dec.decode(value);
+    const lines = buf.split('\n');
+    buf = lines.pop();
+    for (const line of lines) {
+      if (!line.startsWith('data: ')) continue;
+      const data = line.slice(6);
+      if (data === '[KLAAR]') break;
+      if (data.startsWith('[BRONNEN]')) {
+        const lijst = JSON.parse(data.slice(9));
+        bronnen.innerHTML = '<h4>Bronnen</h4>' + lijst.map(b =>
+          `<a href="${b.url}" target="_blank">[${b.nr}] ${b.titel}</a>`
+        ).join('');
+        bronnen.classList.add('zichtbaar');
+      } else {
+        output.textContent += data.replace(/\\n/g, '\n');
+      }
+    }
+  }
+});
+</script>
+{% endblock %}

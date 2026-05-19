@@ -1,0 +1,86 @@
+{% extends "base.html" %}
+{% block title %}Archief{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <h1>Raadsarchief Amsterdam</h1>
+  <p>{{ stats.totaal }} items — laatste update {{ stats.laatste_update[:10] if stats.laatste_update else '—' }}</p>
+</div>
+
+<div class="stats-bar">
+  {% for type, n in stats.per_type.items() %}
+  <div class="stat">
+    <div class="stat-getal">{{ n }}</div>
+    <div class="stat-label">{{ type.replace('_', ' ').title() }}{{ 'n' if type == 'motie' else 's' }}</div>
+  </div>
+  {% endfor %}
+</div>
+
+<form class="zoekbalk" method="get" action="/">
+  <input type="search" name="q" value="{{ q }}" placeholder="Zoek in titel, indiener…" autofocus>
+  <select name="type" onchange="this.form.submit()">
+    <option value="" {% if not type %}selected{% endif %}>Alle types</option>
+    <option value="motie" {% if type == 'motie' %}selected{% endif %}>Moties</option>
+    <option value="schriftelijke_vraag" {% if type == 'schriftelijke_vraag' %}selected{% endif %}>Schriftelijke vragen</option>
+    <option value="ingekomen_stuk" {% if type == 'ingekomen_stuk' %}selected{% endif %}>Ingekomen stukken</option>
+  </select>
+  <button class="btn btn-primair" type="submit">Zoeken</button>
+  {% if q or type %}<a class="btn btn-secundair" href="/">Wis filter</a>{% endif %}
+</form>
+
+{% if items %}
+<div class="items-lijst">
+  {% for item in items %}
+  {% set vandaag = now %}
+  <a class="item-kaart" href="/item/{{ item.id }}">
+    <div>
+      <div class="item-titel">{{ item.titel or '(geen titel)' }}</div>
+      <div class="item-meta">
+        <span>{{ item.indiener or '—' }}</span>
+        <span>{{ item.datum_ingediend or '?' }}</span>
+        {% if item.termijn_einde %}
+        <span class="{% if item.termijn_einde < today %}termijn-verstreken{% elif item.termijn_einde <= week %}termijn-nadert{% endif %}">
+          termijn {{ item.termijn_einde }}
+        </span>
+        {% endif %}
+      </div>
+    </div>
+    <div class="item-rechts">
+      <span class="badge badge-{{ item.type.replace('_', '-') }}">
+        {{ 'Motie' if item.type == 'motie' else 'S. vraag' if item.type == 'schriftelijke_vraag' else 'Ingekomen' }}
+      </span>
+      {% if item.uitslag %}
+      <div class="termijn-datum">
+        <span class="badge badge-{{ 'aangenomen' if 'aangenomen' in item.uitslag.lower() else 'verworpen' if 'verworpen' in item.uitslag.lower() else '' }}">
+          {{ item.uitslag }}
+        </span>
+      </div>
+      {% endif %}
+    </div>
+  </a>
+  {% endfor %}
+</div>
+
+{% if pages > 1 %}
+<div class="paginering">
+  {% if page > 1 %}<a href="?q={{ q }}&type={{ type }}&page={{ page - 1 }}">← Vorige</a>{% endif %}
+  {% for p in range(1, pages + 1) %}
+    {% if p == page %}
+      <span class="actief">{{ p }}</span>
+    {% elif p == 1 or p == pages or (p >= page - 2 and p <= page + 2) %}
+      <a href="?q={{ q }}&type={{ type }}&page={{ p }}">{{ p }}</a>
+    {% elif p == page - 3 or p == page + 3 %}
+      <span>…</span>
+    {% endif %}
+  {% endfor %}
+  {% if page < pages %}<a href="?q={{ q }}&type={{ type }}&page={{ page + 1 }}">Volgende →</a>{% endif %}
+</div>
+{% endif %}
+
+{% else %}
+<div class="leeg">
+  <strong>Geen items gevonden</strong>
+  {% if q %}<p>Probeer een andere zoekterm.</p>{% endif %}
+</div>
+{% endif %}
+{% endblock %}

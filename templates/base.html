@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}Raadstracker{% endblock %} — Amsterdam</title>
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+  <header>
+    <nav>
+      <a class="brand" href="/">Raadstracker</a>
+      <div class="nav-links">
+        <a href="/" {% if request.url.path == "/" %}class="active"{% endif %}>Archief</a>
+        <a href="/briefing" {% if request.url.path == "/briefing" %}class="active"{% endif %}>Briefing</a>
+        <a href="/vraag" {% if request.url.path == "/vraag" %}class="active"{% endif %}>Vraag stellen</a>
+      </div>
+    </nav>
+  </header>
+  <main>
+    {% block content %}{% endblock %}
+  </main>
+  <footer>
+    <span>Raadstracker · Amsterdam · <a href="https://amsterdam.raadsinformatie.nl" target="_blank">raadsinformatie.nl</a></span>
+  </footer>
+  {% block scripts %}{% endblock %}
+</body>
+</html>
