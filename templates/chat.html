@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Raadstracker — AI Assistent</title>
+  <link rel="stylesheet" href="/static/style.css">
+  <link rel="stylesheet" href="/static/chat.css">
+</head>
+<body class="chat-pagina">
+
+<div class="chat-layout">
+
+  <!-- Sidebar -->
+  <aside class="chat-sidebar">
+    <div class="sidebar-top">
+      <a href="/" class="sidebar-logo">
+        <svg width="28" height="28" viewBox="0 0 28 28" fill="none">
+          <rect width="28" height="28" rx="8" fill="#003082"/>
+          <path d="M7 14h14M14 7v14" stroke="white" stroke-width="2.5" stroke-linecap="round"/>
+        </svg>
+        <span>Raadstracker</span>
+      </a>
+      <button class="sidebar-nieuw" onclick="nieuwGesprek()">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+          <path d="M8 3v10M3 8h10" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+        </svg>
+        Nieuw gesprek
+      </button>
+    </div>
+
+    <div class="sidebar-nav">
+      <a href="/" class="sidebar-link">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+          <rect x="2" y="2" width="5" height="5" rx="1" fill="currentColor"/>
+          <rect x="9" y="2" width="5" height="5" rx="1" fill="currentColor"/>
+          <rect x="2" y="9" width="5" height="5" rx="1" fill="currentColor"/>
+          <rect x="9" y="9" width="5" height="5" rx="1" fill="currentColor"/>
+        </svg>
+        Archief
+      </a>
+      <a href="/briefing" class="sidebar-link">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+          <path d="M3 4h10M3 8h7M3 12h5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+        </svg>
+        Briefing
+      </a>
+      <a href="/chat" class="sidebar-link actief">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+          <path d="M2 3a1 1 0 011-1h10a1 1 0 011 1v7a1 1 0 01-1 1H9l-3 3v-3H3a1 1 0 01-1-1V3z" fill="currentColor" opacity=".2" stroke="currentColor" stroke-width="1.2"/>
+        </svg>
+        AI Assistent
+      </a>
+    </div>
+
+    <div class="sidebar-geschiedenis" id="sidebar-geschiedenis">
+      <!-- Gesprekken komen hier -->
+    </div>
+  </aside>
+
+  <!-- Hoofdpaneel -->
+  <main class="chat-hoofd">
+
+    <div class="chat-berichten" id="chat-berichten">
+      <!-- Welkomstscherm -->
+      <div class="chat-welkom" id="chat-welkom">
+        <div class="welkom-avatar">
+          <svg width="40" height="40" viewBox="0 0 40 40" fill="none">
+            <rect width="40" height="40" rx="12" fill="#003082"/>
+            <path d="M10 20h20M20 10v20" stroke="white" stroke-width="3" stroke-linecap="round"/>
+          </svg>
+        </div>
+        <h2>Hoe kan ik je helpen?</h2>
+        <p>Stel een vraag over raadsitems, moties of besluiten van de Amsterdamse gemeenteraad.</p>
+        <div class="welkom-suggesties">
+          {% for v in [
+            'Wat is de status van moties over daklozenopvang?',
+            'Welke schriftelijke vragen zijn gesteld over jeugdzorg?',
+            'Zijn er openstaande termijnen over wonen?',
+            'Wat heeft de SP ingediend afgelopen jaar?'
+          ] %}
+          <button class="suggestie-btn" onclick="stelVraag('{{ v }}')">{{ v }}</button>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+
+    <div class="chat-invoer-wrapper">
+      <div class="chat-invoer-inner">
+        <form id="chat-form" class="chat-form">
+          <div class="chat-input-box">
+            <textarea
+              id="chat-input"
+              placeholder="Stel een vraag over raadsitems…"
+              rows="1"
+            ></textarea>
+            <button type="submit" id="chat-btn" class="chat-verstuur-btn" disabled>
+              <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+                <path d="M10 15V5M5 10l5-5 5 5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+            </button>
+          </div>
+        </form>
+        <p class="chat-disclaimer">Antwoorden zijn gebaseerd op het Amsterdamse raadsarchief.</p>
+      </div>
+    </div>
+
+  </main>
+</div>
+
+<script>
+// ── State ──────────────────────────────────────────────────────────────────
+let bezig = false;
+
+// ── Markdown renderer ──────────────────────────────────────────────────────
+function renderMarkdown(text) {
+  return text
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+    .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+    .replace(/\*(.+?)\*/g, '<em>$1</em>')
+    .replace(/^### (.+)$/gm, '<h3>$1</h3>')
+    .replace(/^## (.+)$/gm, '<h2>$1</h2>')
+    .replace(/^# (.+)$/gm, '<h1>$1</h1>')
+    .replace(/^[*-] (.+)$/gm, '<li>$1</li>')
+    .replace(/(<li>[\s\S]*?<\/li>\n?)+/g, m => `<ul>${m}</ul>`)
+    .replace(/\[(\d+)\]/g, '<span class="bronref">[$1]</span>')
+    .replace(/\n\n/g, '</p><p>')
+    .replace(/^(?!<[hulo])(.+)$/gm, (m) => m.startsWith('<') ? m : m);
+}
+
+// ── Bericht toevoegen ──────────────────────────────────────────────────────
+function voegGebruikerBerichtToe(tekst) {
+  document.getElementById('chat-welkom')?.remove();
+  const el = document.createElement('div');
+  el.className = 'bericht bericht-gebruiker';
+  el.innerHTML = `<div class="bericht-bubbel">${tekst.replace(/\n/g, '<br>')}</div>`;
+  document.getElementById('chat-berichten').appendChild(el);
+  scrollNaarOnder();
+}
+
+function voegAIBerichtToe() {
+  const el = document.createElement('div');
+  el.className = 'bericht bericht-ai';
+  el.innerHTML = `
+    <div class="ai-avatar">
+      <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+        <rect width="20" height="20" rx="6" fill="#003082"/>
+        <path d="M5 10h10M10 5v10" stroke="white" stroke-width="2" stroke-linecap="round"/>
+      </svg>
+    </div>
+    <div class="bericht-inhoud">
+      <div class="ai-tekst" id="ai-tekst-actief"><span class="cursor-knipperen"></span></div>
+      <div class="ai-items" id="ai-items-actief"></div>
+    </div>`;
+  document.getElementById('chat-berichten').appendChild(el);
+  scrollNaarOnder();
+  return el;
+}
+
+function scrollNaarOnder() {
+  const el = document.getElementById('chat-berichten');
+  el.scrollTop = el.scrollHeight;
+}
+
+// ── Vraag stellen ──────────────────────────────────────────────────────────
+function stelVraag(tekst) {
+  document.getElementById('chat-input').value = tekst;
+  document.getElementById('chat-form').dispatchEvent(new Event('submit'));
+}
+
+function nieuwGesprek() {
+  location.reload();
+}
+
+// ── Form submit ────────────────────────────────────────────────────────────
+document.getElementById('chat-form').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  if (bezig) return;
+  const input = document.getElementById('chat-input');
+  const vraag = input.value.trim();
+  if (!vraag) return;
+
+  bezig = true;
+  input.value = '';
+  input.style.height = 'auto';
+  document.getElementById('chat-btn').disabled = true;
+
+  voegGebruikerBerichtToe(vraag);
+  const aiBericht = voegAIBerichtToe();
+  const tekstvak = document.getElementById('ai-tekst-actief');
+  const itemsvak = document.getElementById('ai-items-actief');
+
+  const form = new FormData();
+  form.append('vraag', vraag);
+
+  const resp = await fetch('/api/vraag', { method: 'POST', body: form });
+  const reader = resp.body.getReader();
+  const dec = new TextDecoder();
+  let buf = '';
+  let rawText = '';
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    buf += dec.decode(value);
+    const lines = buf.split('\n');
+    buf = lines.pop();
+    for (const line of lines) {
+      if (!line.startsWith('data: ')) continue;
+      const data = line.slice(6);
+      if (data === '[KLAAR]') break;
+      if (data.startsWith('[BRONNEN]')) {
+        const lijst = JSON.parse(data.slice(9));
+        if (lijst.length > 0) {
+          itemsvak.innerHTML = `
+            <div class="bronnen-header">Gevonden items (${lijst.length})</div>
+            <div class="bronnen-kaarten">
+              ${lijst.map(b => `
+                <a href="${b.url}" target="_blank" rel="noopener" class="bron-kaart">
+                  <span class="bron-nr">${b.nr}</span>
+                  <span class="bron-titel">${b.titel || '(geen titel)'}</span>
+                  <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+                    <path d="M2 10L10 2M10 2H5M10 2v5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+                  </svg>
+                </a>`).join('')}
+            </div>`;
+        }
+      } else {
+        rawText += data.replace(/\\n/g, '\n');
+        tekstvak.innerHTML = `<p>${renderMarkdown(rawText)}</p><span class="cursor-knipperen"></span>`;
+        scrollNaarOnder();
+      }
+    }
+  }
+
+  // Verwijder knipperende cursor
+  tekstvak.querySelectorAll('.cursor-knipperen').forEach(el => el.remove());
+  tekstvak.id = '';
+  itemsvak.id = '';
+
+  bezig = false;
+  document.getElementById('chat-btn').disabled = false;
+  input.focus();
+  scrollNaarOnder();
+});
+
+// ── Textarea auto-resize + send-button activeren ───────────────────────────
+document.getElementById('chat-input').addEventListener('input', function() {
+  this.style.height = 'auto';
+  this.style.height = Math.min(this.scrollHeight, 180) + 'px';
+  document.getElementById('chat-btn').disabled = !this.value.trim() || bezig;
+});
+
+document.getElementById('chat-input').addEventListener('keydown', (e) => {
+  if (e.key === 'Enter' && !e.shiftKey) {
+    e.preventDefault();
+    document.getElementById('chat-form').dispatchEvent(new Event('submit'));
+  }
+});
+</script>
+</body>
+</html>

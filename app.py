@@ -94,6 +94,11 @@ async def vraag_page(request: Request):
     return templates.TemplateResponse("vraag.html", {"request": request})
 
 
+@app.get("/chat", response_class=HTMLResponse)
+async def chat_page(request: Request):
+    return templates.TemplateResponse("chat.html", {"request": request})
+
+
 # ── API: briefing (streaming) ─────────────────────────────────────────────────
 
 @app.post("/api/briefing")
@@ -145,30 +150,25 @@ Wees bondig. Verwijs naar stukken met [nummer] zoals aangegeven in de context.""
 
 @app.post("/api/vraag")
 async def api_vraag(vraag: str = Form(...)):
-    # Zoek relevante items via FTS
-    termen = vraag.split()[:6]
-    items = db.zoek_voor_briefing(termen, limit=10)
+    termen = [w for w in vraag.split() if len(w) > 2][:8]
+    items = db.zoek_voor_briefing(termen, limit=12)
 
     if not items:
-        # Fallback: recent items als context
         items = db.get_recent_items(limit=10)
 
     context = items_als_context(items)
-    prompt = f"""Je bent een politiek assistent voor het Amsterdamse gemeenteraad archief.
+    prompt = f"""Je bent een assistent voor het Amsterdamse raadsarchief. Geef een kort, direct antwoord in maximaal 3-4 zinnen. Verwijs naar items met [nummer]. Als iets niet in de items staat, zeg dat eerlijk.
 
 Vraag: {vraag}
 
-Beschikbare raadsitems:
-{context}
-
-Beantwoord de vraag op basis van de raadsitems. Als een item direct relevant is, verwijs ernaar met [nummer].
-Als het antwoord niet in de beschikbare items staat, zeg dat dan eerlijk."""
+Raadsitems:
+{context}"""
 
     async def stream():
         client = get_claude()
         with client.messages.stream(
             model="claude-sonnet-4-6",
-            max_tokens=800,
+            max_tokens=500,
             messages=[{"role": "user", "content": prompt}],
         ) as stream:
             for text in stream.text_stream:
