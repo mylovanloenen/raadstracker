@@ -310,21 +310,44 @@ def zoek_items(
 
 
 def zoek_voor_briefing(termen: list[str], gemeente_slug: str = "amsterdam", limit: int = 20) -> list[dict]:
-    """FTS search across multiple terms, return most relevant items."""
+    """FTS search: eerst AND (precies), daarna OR (breed), resultaten gecombineerd."""
     if not termen:
         return []
-    query = " OR ".join(f'"{t.strip()}"*' for t in termen if t.strip())
+    schone = [t.strip() for t in termen if t.strip()]
+    resultaten: list[dict] = []
+    gezien: set[int] = set()
+
     with get_connection() as conn:
-        rows = conn.execute(
-            """SELECT i.* FROM items i
-               JOIN items_fts f ON i.id = f.rowid
-               WHERE items_fts MATCH ?
-               AND i.gemeente_slug = ?
-               ORDER BY rank
-               LIMIT ?""",
-            (query, gemeente_slug, limit),
-        ).fetchall()
-    return [dict(r) for r in rows]
+        def zoek(query: str) -> list[sqlite3.Row]:
+            try:
+                return conn.execute(
+                    """SELECT i.* FROM items i
+                       JOIN items_fts f ON i.id = f.rowid
+                       WHERE items_fts MATCH ? AND i.gemeente_slug = ?
+                       ORDER BY rank LIMIT ?""",
+                    (query, gemeente_slug, limit),
+                ).fetchall()
+            except Exception:
+                return []
+
+        # Strategie 1: alle termen moeten voorkomen (AND)
+        if len(schone) > 1:
+            and_query = " ".join(f'"{t}"*' for t in schone)
+            for r in zoek(and_query):
+                if r["id"] not in gezien:
+                    resultaten.append(dict(r))
+                    gezien.add(r["id"])
+
+        # Strategie 2: minstens één term (OR) — vult aan tot limit
+        or_query = " OR ".join(f'"{t}"*' for t in schone)
+        for r in zoek(or_query):
+            if r["id"] not in gezien:
+                resultaten.append(dict(r))
+                gezien.add(r["id"])
+            if len(resultaten) >= limit:
+                break
+
+    return resultaten[:limit]
 
 
 def get_recent_items(gemeente_slug: str = "amsterdam", limit: int = 10) -> list[dict]:

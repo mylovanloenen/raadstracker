@@ -38,16 +38,38 @@ def get_claude() -> anthropic.Anthropic:
 
 # ── Helpers ──────────────────────────────────────────────────────────────────
 
+STOP_WOORDEN = {
+    'de','het','een','van','in','op','aan','voor','door','met','is','zijn','worden',
+    'heeft','hebben','dat','dit','die','deze','er','ook','maar','als','wat','wie',
+    'hoe','waar','wanneer','niet','wel','zo','nog','dan','te','na','bij','tot','uit',
+    'over','naar','om','geen','werd','kan','hij','zij','wij','ik','je','ze','we',
+    'me','mij','hun','hen','al','wel','dus','nu','al','of','en','om','du','was',
+}
+
+TYPE_LABEL = {
+    'motie': 'Motie',
+    'schriftelijke_vraag': 'Schriftelijke vraag',
+    'ingekomen_stuk': 'Ingekomen stuk',
+}
+
+
+def extraheer_zoektermen(vraag: str) -> list[str]:
+    woorden = vraag.lower().replace('?', '').replace('!', '').split()
+    return [w for w in woorden if len(w) > 2 and w not in STOP_WOORDEN][:10]
+
+
 def items_als_context(items: list[dict]) -> str:
     lines = []
     for i, item in enumerate(items, 1):
+        type_naam = TYPE_LABEL.get(item['type'], item['type'])
+        uitslag = item.get('uitslag') or 'openstaand'
         lines.append(
-            f"[{i}] {item['type'].replace('_', ' ').title()} — {item['titel']}\n"
-            f"    Indiener: {item['indiener'] or '—'} | Datum: {item['datum_ingediend'] or '?'} | "
-            f"Uitslag: {item['uitslag'] or 'openstaand'}\n"
-            f"    URL: {item['bron_url']}"
+            f"[{i}] {type_naam}: {item['titel']}\n"
+            f"    Indiener: {item['indiener'] or 'onbekend'} | "
+            f"Datum: {item['datum_ingediend'] or 'onbekend'} | "
+            f"Status: {uitslag}"
         )
-    return "\n\n".join(lines)
+    return "\n".join(lines)
 
 
 # ── Pagina's ──────────────────────────────────────────────────────────────────
@@ -113,20 +135,28 @@ async def api_briefing(onderwerpen: str = Form(...)):
         return StreamingResponse(geen_items(), media_type="text/event-stream")
 
     context = items_als_context(items)
-    prompt = f"""Je bent een politiek assistent voor een Amsterdams raadslid.
+    prompt = f"""Je bent een ervaren politiek adviseur die een pre-meeting briefing opstelt voor een Amsterdams raadslid.
 
-Onderwerpen voor de briefing: {', '.join(termen)}
+Onderwerpen: {', '.join(termen)}
 
-Relevante raadsitems uit het archief ({len(items)} stuks):
+Raadsitems uit het archief ({len(items)} stuks):
 {context}
 
-Schrijf een heldere pre-meeting briefing. Structuur:
-1. **Kernpunten** (wat speelt er op deze onderwerpen?)
-2. **Openstaande items** (moties of vragen zonder afdoening)
-3. **Aandachtspunten** (termijnen die naderen of verstreken zijn)
-4. **Suggestievragen** (2-3 concrete vragen die het raadslid kan stellen)
+Schrijf een heldere, professionele briefing in vloeiend Nederlands met de volgende opbouw:
 
-Wees bondig. Verwijs naar stukken met [nummer] zoals aangegeven in de context."""
+**Kernpunten**
+Wat speelt er momenteel op deze onderwerpen? Benoem de belangrijkste ontwikkelingen concreet.
+
+**Openstaande items**
+Welke moties of vragen zijn nog niet afgedaan? Noem indiener en datum.
+
+**Aandachtspunten**
+Zijn er termijnen die naderen of verlopen zijn?
+
+**Suggestievragen**
+2-3 scherpe, concrete vragen die het raadslid kan stellen in de vergadering.
+
+Verwijs naar stukken met [nummer]. Wees concreet en gebruik specifieke informatie uit de items."""
 
     async def stream():
         client = get_claude()
@@ -150,25 +180,33 @@ Wees bondig. Verwijs naar stukken met [nummer] zoals aangegeven in de context.""
 
 @app.post("/api/vraag")
 async def api_vraag(vraag: str = Form(...)):
-    termen = [w for w in vraag.split() if len(w) > 2][:8]
-    items = db.zoek_voor_briefing(termen, limit=12)
+    termen = extraheer_zoektermen(vraag)
+    items = db.zoek_voor_briefing(termen, limit=15)
 
     if not items:
         items = db.get_recent_items(limit=10)
 
     context = items_als_context(items)
-    prompt = f"""Je bent een assistent voor het Amsterdamse raadsarchief. Geef een kort, direct antwoord in maximaal 3-4 zinnen. Verwijs naar items met [nummer]. Als iets niet in de items staat, zeg dat eerlijk.
+    prompt = f"""Je bent een deskundige assistent voor het Amsterdamse gemeenteraadsarchief met toegang tot raadsitems van de afgelopen jaren.
+
+Beantwoord de vraag op basis van de onderstaande raadsitems. Richtlijnen:
+- Schrijf in vloeiend, helder Nederlands
+- Noem concrete details zoals indiener, datum en uitslag wanneer relevant
+- Verwijs naar items met [nummer] als je ernaar verwijst
+- Pas de lengte aan op de vraag: eenvoudige vragen krijgen een bondig antwoord, complexe vragen een uitgebreider antwoord
+- Geef structuur aan langere antwoorden met alinea's
+- Als iets niet in de beschikbare items staat, zeg dat eerlijk
 
 Vraag: {vraag}
 
-Raadsitems:
+Beschikbare raadsitems ({len(items)} stuks):
 {context}"""
 
     async def stream():
         client = get_claude()
         with client.messages.stream(
             model="claude-sonnet-4-6",
-            max_tokens=500,
+            max_tokens=1000,
             messages=[{"role": "user", "content": prompt}],
         ) as stream:
             for text in stream.text_stream:
