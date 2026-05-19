@@ -2,84 +2,124 @@
 {% block title %}{{ item.titel[:60] if item.titel else 'Item' }}{% endblock %}
 
 {% block content %}
+<div style="margin-bottom:20px;">
+  <a href="/" class="btn btn-secundair" style="font-size:13px;padding:7px 14px;">← Terug naar archief</a>
+</div>
+
 <div class="kaart">
-  <div class="detail-header">
-    <div style="margin-bottom:10px;">
-      <span class="badge badge-{{ item.type.replace('_', '-') }}">
-        {{ item.type.replace('_', ' ').title() }}
-      </span>
-      {% if item.uitslag %}
-      <span class="badge badge-{{ 'aangenomen' if 'aangenomen' in item.uitslag.lower() else 'verworpen' if 'verworpen' in item.uitslag.lower() else '' }}" style="margin-left:6px;">
-        {{ item.uitslag }}
-      </span>
-      {% endif %}
-    </div>
-    <h1>{{ item.titel or '(geen titel)' }}</h1>
-    <div class="detail-meta">
-      {% if item.indiener %}<span>{{ item.indiener }}</span>{% endif %}
-      {% if item.datum_ingediend %}<span>Ingediend: {{ item.datum_ingediend }}</span>{% endif %}
-      {% if item.termijn_einde %}<span>Termijn: {{ item.termijn_einde }}</span>{% endif %}
-      {% if item.datum_afdoening %}<span>Afgedaan: {{ item.datum_afdoening }}</span>{% endif %}
-    </div>
+  <div class="detail-badges">
+    <span class="badge badge-{{ item.type.replace('_', '-') }}">
+      {{ 'Motie' if item.type == 'motie' else 'Schriftelijke vraag' if item.type == 'schriftelijke_vraag' else 'Ingekomen stuk' }}
+    </span>
+    {% if item.uitslag %}
+    <span class="badge badge-{{ 'aangenomen' if 'aangenomen' in item.uitslag.lower() else 'verworpen' if 'verworpen' in item.uitslag.lower() else '' }}">
+      {{ item.uitslag }}
+    </span>
+    {% endif %}
+  </div>
+
+  <div class="detail-titel">{{ item.titel or '(geen titel)' }}</div>
+
+  <div class="detail-meta">
+    {% if item.indiener %}
+    <span>
+      <svg width="13" height="13" viewBox="0 0 13 13" fill="none">
+        <circle cx="6.5" cy="4" r="2.5" stroke="currentColor" stroke-width="1.2"/>
+        <path d="M1.5 11c0-2.76 2.24-5 5-5s5 2.24 5 5" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/>
+      </svg>
+      {{ item.indiener }}
+    </span>
+    {% endif %}
+    {% if item.datum_ingediend %}
+    <span>
+      <svg width="13" height="13" viewBox="0 0 13 13" fill="none">
+        <rect x="1.5" y="2.5" width="10" height="9" rx="1.5" stroke="currentColor" stroke-width="1.2"/>
+        <path d="M4.5 1.5v2M8.5 1.5v2M1.5 5.5h10" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/>
+      </svg>
+      Ingediend: {{ item.datum_ingediend }}
+    </span>
+    {% endif %}
+    {% if item.termijn_einde %}
+    <span>Termijn: {{ item.termijn_einde }}</span>
+    {% endif %}
+    {% if item.datum_afdoening %}
+    <span>Afgedaan: {{ item.datum_afdoening }}</span>
+    {% endif %}
   </div>
 
   {% if item.gekoppeld_evenement %}
-  <div class="detail-veld">
+  <div class="detail-sectie">
     <h3>Vergadering</h3>
     <p>{{ item.gekoppeld_evenement }}</p>
   </div>
   {% endif %}
 
-  <div class="detail-veld" style="margin-top:24px;">
+  <div style="margin-top:24px;">
     <a class="btn btn-primair" href="{{ item.bron_url }}" target="_blank" rel="noopener">
       Bekijk origineel stuk ↗
     </a>
-    <a class="btn btn-secundair" href="/" style="margin-left:8px;">← Terug naar archief</a>
   </div>
 </div>
 
 <div class="kaart">
-  <h3 style="font-size:14px;font-weight:700;color:var(--grijs);text-transform:uppercase;margin-bottom:12px;">Snel een vraag stellen over dit item</h3>
+  <h3 style="font-size:13px;font-weight:700;color:var(--tekst-3);text-transform:uppercase;letter-spacing:.4px;margin-bottom:14px;">Vraag stellen over dit item</h3>
   <form id="snelvraag-form">
-    <div class="chat-invoer">
-      <textarea id="snelvraag" rows="2" placeholder="Bijv: is deze motie inhoudelijk afgedaan of formeel afgemeld?"></textarea>
-      <button class="btn btn-primair" type="submit">Vraag</button>
+    <div class="chat-invoer-blok">
+      <textarea id="snelvraag" rows="1"
+        placeholder="Bijv: is deze motie inhoudelijk afgedaan of formeel afgemeld?"></textarea>
+      <button class="btn btn-primair" type="submit" style="padding:8px 16px;font-size:13px;">Vraag</button>
     </div>
   </form>
   <div class="lader" id="lader"><div class="spinner"></div> Claude denkt na…</div>
-  <div class="output-blok" id="output"></div>
-  <div class="bronnen-lijst" id="bronnen"><h4>Bronnen</h4></div>
+  <div class="output-blok" id="output" style="margin-top:16px;"></div>
+  <div class="bronnen-sectie" id="bronnen"><h4>Bronnen</h4></div>
 </div>
 {% endblock %}
 
 {% block scripts %}
 <script>
 const itemTitel = {{ item.titel | tojson }};
-const itemType = {{ item.type | tojson }};
+const itemType  = {{ item.type | tojson }};
+
+function renderMarkdown(text) {
+  return text
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+    .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+    .replace(/^[*-] (.+)$/gm, '<li>$1</li>')
+    .replace(/(<li>[\s\S]*?<\/li>\n?)+/g, m => `<ul>${m}</ul>`)
+    .replace(/\n\n/g, '</p><p>');
+}
+
+// Auto-resize textarea
+document.getElementById('snelvraag').addEventListener('input', function() {
+  this.style.height = 'auto';
+  this.style.height = Math.min(this.scrollHeight, 120) + 'px';
+});
 
 document.getElementById('snelvraag-form').addEventListener('submit', async (e) => {
   e.preventDefault();
   const vraag = document.getElementById('snelvraag').value.trim();
   if (!vraag) return;
 
-  const volledigeVraag = `Over het volgende raadsitem: "${itemTitel}" (${itemType})\n\nVraag: ${vraag}`;
+  const volledigeVraag = `Over het raadsitem: "${itemTitel}" (${itemType})\n\nVraag: ${vraag}`;
 
-  const output = document.getElementById('output');
-  const lader = document.getElementById('lader');
+  const output  = document.getElementById('output');
+  const lader   = document.getElementById('lader');
   const bronnen = document.getElementById('bronnen');
 
-  output.textContent = '';
+  output.innerHTML = '';
   output.classList.remove('zichtbaar');
-  bronnen.classList.remove('zichtbaar');
+  bronnen.className = 'bronnen-sectie';
+  bronnen.innerHTML = '<h4>Bronnen</h4>';
   lader.classList.add('zichtbaar');
 
   const form = new FormData();
   form.append('vraag', volledigeVraag);
 
-  const resp = await fetch('/api/vraag', { method: 'POST', body: form });
+  const resp   = await fetch('/api/vraag', { method: 'POST', body: form });
   const reader = resp.body.getReader();
-  const dec = new TextDecoder();
-  let buf = '';
+  const dec    = new TextDecoder();
+  let buf = '', rawText = '';
 
   lader.classList.remove('zichtbaar');
   output.classList.add('zichtbaar');
@@ -96,12 +136,12 @@ document.getElementById('snelvraag-form').addEventListener('submit', async (e) =
       if (data === '[KLAAR]') break;
       if (data.startsWith('[BRONNEN]')) {
         const lijst = JSON.parse(data.slice(9));
-        bronnen.innerHTML = '<h4>Bronnen</h4>' + lijst.map(b =>
-          `<a href="${b.url}" target="_blank">[${b.nr}] ${b.titel}</a>`
-        ).join('');
+        bronnen.innerHTML = '<h4>Bronnen</h4>' +
+          lijst.map(b => `<a href="${b.url}" target="_blank" rel="noopener">[${b.nr}] ${b.titel}</a>`).join('');
         bronnen.classList.add('zichtbaar');
       } else {
-        output.textContent += data.replace(/\\n/g, '\n');
+        rawText += data.replace(/\\n/g, '\n');
+        output.innerHTML = '<p>' + renderMarkdown(rawText) + '</p>';
       }
     }
   }
