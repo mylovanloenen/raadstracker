@@ -22,8 +22,14 @@ def main():
     with db.get_connection() as conn:
         count = conn.execute("SELECT COUNT(*) FROM items").fetchone()[0]
 
+    tk_count = 0
+    with db.get_connection() as conn:
+        tk_count = conn.execute(
+            "SELECT COUNT(*) FROM items WHERE gemeente_slug = 'tweedekamer'"
+        ).fetchone()[0]
+
     if count == 0:
-        logger.info("Lege database gevonden — bulk import starten...")
+        logger.info("Lege database gevonden — Amsterdam bulk import starten...")
         from bulk_import import importeer_module, MODULES
         totaal = 0
         for module_type in MODULES:
@@ -31,9 +37,27 @@ def main():
             totaal += nieuw
             logger.info(f"{module_type}: {nieuw} items geïmporteerd")
         db.rebuild_fts()
-        logger.info(f"✅ Bulk import klaar: {totaal} items")
-    else:
-        logger.info(f"Database bevat {count} items — geen import nodig")
+        logger.info(f"✅ Amsterdam import klaar: {totaal} items")
+
+    if tk_count == 0:
+        logger.info("Geen Tweede Kamer items — TK import starten (afgelopen 2 jaar)...")
+        from tk_import import importeer
+        from datetime import date, timedelta
+        vanaf = (date.today() - timedelta(days=730)).isoformat()
+        nieuw = importeer(vanaf=vanaf)
+        logger.info(f"✅ TK import klaar: {nieuw} items")
+
+    with db.get_connection() as conn:
+        tz_count = conn.execute("SELECT COUNT(*) FROM toezeggingen").fetchone()[0]
+
+    if tz_count == 0:
+        logger.info("Geen toezeggingen — TK toezeggingen importeren...")
+        from toezeggingen_import import importeer as importeer_tz
+        nieuw = importeer_tz()
+        logger.info(f"✅ Toezeggingen import klaar: {nieuw} items")
+
+    if count > 0 and tk_count > 0:
+        logger.info(f"Database: {count} items (incl. {tk_count} TK), {tz_count} toezeggingen")
 
 
 if __name__ == "__main__":

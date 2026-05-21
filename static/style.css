@@ -167,6 +167,29 @@ body.app-pagina {
 .stat-getal { font-size: 22px; font-weight: 700; color: var(--blauw); }
 .stat-label { font-size: 12px; color: var(--tekst-3); margin-top: 2px; }
 
+/* ── Bron-tabs ───────────────────────────────────────────────────────────── */
+.bron-tabs {
+  display: flex;
+  gap: 4px;
+  margin-bottom: 16px;
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 0;
+}
+
+.bron-tab {
+  padding: 7px 14px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--tekst-2);
+  text-decoration: none;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+  transition: color .15s;
+}
+
+.bron-tab:hover { color: var(--tekst); }
+.bron-tab.actief { color: var(--blauw); border-bottom-color: var(--blauw); font-weight: 600; }
+
 /* ── Zoekbalk ────────────────────────────────────────────────────────────── */
 .zoekbalk {
   display: flex;
@@ -297,8 +320,10 @@ body.app-pagina {
 .badge-motie            { background: #e8edf6; color: var(--blauw); }
 .badge-schriftelijke-vraag { background: #fef3e2; color: #8a4800; }
 .badge-ingekomen-stuk   { background: #edf7f2; color: #1a5c35; }
+.badge-interpellatie    { background: #f0e8f7; color: #6b2fa0; }
 .badge-aangenomen       { background: #edf7f2; color: var(--groen); }
 .badge-verworpen        { background: #fdecea; color: var(--rood); }
+.badge-tk               { background: #fff3e0; color: #b45309; font-weight: 700; }
 
 .termijn-nadert   { color: var(--oranje); font-weight: 600; }
 .termijn-verstreken { color: var(--rood); font-weight: 600; }
@@ -489,6 +514,230 @@ textarea:focus, input[type=text]:focus {
 }
 .leeg strong { display: block; font-size: 15px; margin-bottom: 6px; color: var(--tekst); }
 .leeg p { font-size: 14px; }
+
+/* ── Nieuws van vandaag ──────────────────────────────────────────────────── */
+.ai-briefing-kaart {
+  background: var(--wit);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  margin-bottom: 32px;
+  overflow: hidden;
+}
+
+.ai-briefing-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 16px;
+  background: var(--blauw);
+  color: white;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.ai-avatar-klein {
+  width: 24px;
+  height: 24px;
+  background: rgba(255,255,255,.15);
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.briefing-ververs-btn {
+  margin-left: auto;
+  background: rgba(255,255,255,.15);
+  border: 1px solid rgba(255,255,255,.3);
+  color: white;
+  padding: 5px 12px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background .15s;
+}
+.briefing-ververs-btn:hover { background: rgba(255,255,255,.25); }
+.briefing-ververs-btn:disabled { opacity: .6; cursor: default; }
+
+.ai-briefing-inhoud {
+  padding: 18px 20px;
+  font-size: 14px;
+  line-height: 1.65;
+  color: var(--tekst);
+  min-height: 60px;
+}
+
+.briefing-placeholder { color: var(--tekst-3); font-style: italic; }
+
+.nieuws-sectie {
+  margin-bottom: 36px;
+}
+
+.nieuws-sectie-header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  margin-bottom: 12px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--border);
+}
+
+.nieuws-sectie-header h2 {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--tekst);
+}
+
+.nieuws-meer {
+  font-size: 12px;
+  color: var(--blauw);
+  text-decoration: none;
+  font-weight: 500;
+}
+.nieuws-meer:hover { text-decoration: underline; }
+
+/* ── Toezeggingen ────────────────────────────────────────────────────────── */
+.resultaat-info {
+  font-size: 13px;
+  color: var(--tekst-3);
+  margin-bottom: 16px;
+}
+
+.toezeggingen-lijst {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-bottom: 32px;
+}
+
+.toezegging-kaart {
+  display: flex;
+  background: var(--wit);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+  box-shadow: var(--shadow);
+}
+
+.tz-status-balk {
+  width: 4px;
+  flex-shrink: 0;
+}
+.tz-open .tz-status-balk   { background: var(--oranje); }
+.tz-deels .tz-status-balk  { background: #8b5cf6; }
+.tz-gedaan .tz-status-balk { background: var(--groen); }
+
+.tz-body {
+  flex: 1;
+  padding: 14px 16px;
+  min-width: 0;
+}
+
+.tz-tekst {
+  font-size: 14px;
+  line-height: 1.55;
+  color: var(--tekst);
+  margin-bottom: 10px;
+}
+
+.tz-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.tz-persoon {
+  font-weight: 600;
+  font-size: 13px;
+  color: var(--tekst);
+}
+
+.tz-functie {
+  font-size: 12px;
+  color: var(--tekst-2);
+}
+
+.tz-link {
+  font-size: 12px;
+  color: var(--blauw);
+  text-decoration: none;
+  margin-left: auto;
+}
+.tz-link:hover { text-decoration: underline; }
+
+.tz-footer {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  margin-top: 4px;
+}
+
+.tz-datum {
+  font-size: 12px;
+  color: var(--tekst-3);
+}
+
+.tz-deadline {
+  font-size: 12px;
+  color: var(--oranje);
+  font-weight: 500;
+}
+.tz-deadline.tz-over { color: var(--rood); }
+
+.badge-ministerie {
+  background: var(--bg-2);
+  color: var(--tekst-2);
+  font-size: 11px;
+  padding: 2px 8px;
+  border-radius: 20px;
+  font-weight: 500;
+  max-width: 280px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.badge-tz-openstaand    { background: #fff3e0; color: #b45309; }
+.badge-tz-deels-afgedaan { background: #f3e8ff; color: #6b2fa0; }
+.badge-tz-afgedaan      { background: #edf7f2; color: var(--groen); }
+.badge-tz-vervallen     { background: var(--bg-2); color: var(--tekst-3); }
+
+/* Ministerie-overzicht blok */
+.tz-ministerie-overzicht {
+  margin-top: 40px;
+  padding-top: 24px;
+  border-top: 1px solid var(--border);
+}
+
+.tz-ministerie-overzicht h3 {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--tekst-2);
+  margin-bottom: 12px;
+  text-transform: uppercase;
+  letter-spacing: .4px;
+}
+
+.tz-min-rij {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 7px 0;
+  border-bottom: 1px solid var(--border);
+  text-decoration: none;
+  color: var(--tekst);
+  font-size: 13px;
+  transition: color .15s;
+}
+.tz-min-rij:hover { color: var(--blauw); }
+.tz-min-naam { flex: 1; padding-right: 16px; }
+.tz-min-n { font-weight: 700; color: var(--blauw); font-size: 13px; }
 
 /* ── Responsive ──────────────────────────────────────────────────────────── */
 @media (max-width: 700px) {

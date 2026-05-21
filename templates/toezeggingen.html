@@ -1,0 +1,108 @@
+{% extends "base.html" %}
+{% block title %}Toezeggingen{% endblock %}
+
+{% block content %}
+<div class="pagina-header">
+  <h1>Toezeggingen Tweede Kamer</h1>
+  <p>Beloften van ministers en staatssecretarissen aan de Kamer</p>
+</div>
+
+<!-- Status stats -->
+<div class="stats-rij">
+  {% for status, n in stats.per_status.items() %}
+  <div class="stat-blok">
+    <div class="stat-getal">{{ n }}</div>
+    <div class="stat-label">{{ status or '—' }}</div>
+  </div>
+  {% endfor %}
+</div>
+
+<!-- Filters -->
+<form class="zoekbalk" method="get" action="/toezeggingen">
+  <input type="search" name="q" value="{{ q }}" placeholder="Zoek in toezegging…">
+  <select name="status" onchange="this.form.submit()">
+    <option value="Openstaand" {% if status == 'Openstaand' %}selected{% endif %}>Openstaand</option>
+    <option value="Deels Afgedaan" {% if status == 'Deels Afgedaan' %}selected{% endif %}>Deels afgedaan</option>
+    <option value="" {% if not status %}selected{% endif %}>Alle statussen</option>
+    <option value="Afgedaan" {% if status == 'Afgedaan' %}selected{% endif %}>Afgedaan</option>
+  </select>
+  <select name="ministerie" onchange="this.form.submit()">
+    <option value="">Alle ministeries</option>
+    {% for m in ministeries %}
+    <option value="{{ m }}" {% if ministerie == m %}selected{% endif %}>{{ m }}</option>
+    {% endfor %}
+  </select>
+  <button class="btn btn-primair" type="submit">Zoeken</button>
+  {% if q or ministerie %}<a class="btn btn-secundair" href="/toezeggingen?status={{ status }}">Wis filter</a>{% endif %}
+</form>
+
+<p class="resultaat-info">{{ totaal }} toezeggingen gevonden</p>
+
+{% if items %}
+<div class="toezeggingen-lijst">
+  {% for t in items %}
+  <div class="toezegging-kaart {% if t.status == 'Openstaand' %}tz-open{% elif t.status == 'Deels Afgedaan' %}tz-deels{% else %}tz-gedaan{% endif %}">
+    <div class="tz-status-balk"></div>
+    <div class="tz-body">
+      <p class="tz-tekst">{{ t.tekst }}</p>
+      <div class="tz-meta">
+        <span class="tz-persoon">{{ t.naam or '—' }}</span>
+        <span class="tz-functie">{{ t.functie or '' }}</span>
+        {% if t.ministerie %}
+        <span class="badge badge-ministerie">{{ t.ministerie }}</span>
+        {% endif %}
+        {% if t.nummer %}
+        <a href="https://www.tweedekamer.nl/vergaderingen/commissievergaderingen/details?id={{ t.activiteit_nummer }}"
+           target="_blank" class="tz-link">{{ t.nummer }} ↗</a>
+        {% endif %}
+      </div>
+      <div class="tz-footer">
+        <span class="tz-datum">Geregistreerd: {{ t.aanmaakdatum or '—' }}</span>
+        {% if t.datum_nakoming %}
+        <span class="tz-deadline {% if t.datum_nakoming < today %}tz-over{% endif %}">
+          Deadline: {{ t.datum_nakoming }}{% if t.datum_nakoming < today %} (verstreken){% endif %}
+        </span>
+        {% endif %}
+        <span class="badge badge-tz-{{ t.status | lower | replace(' ', '-') }}">{{ t.status }}</span>
+      </div>
+    </div>
+  </div>
+  {% endfor %}
+</div>
+
+{% if pages > 1 %}
+<div class="paginering">
+  {% if page > 1 %}<a href="?q={{ q }}&status={{ status }}&ministerie={{ ministerie }}&page={{ page - 1 }}">← Vorige</a>{% endif %}
+  {% for p in range(1, pages + 1) %}
+    {% if p == page %}
+      <span class="actief">{{ p }}</span>
+    {% elif p == 1 or p == pages or (p >= page - 2 and p <= page + 2) %}
+      <a href="?q={{ q }}&status={{ status }}&ministerie={{ ministerie }}&page={{ p }}">{{ p }}</a>
+    {% elif p == page - 3 or p == page + 3 %}
+      <span>…</span>
+    {% endif %}
+  {% endfor %}
+  {% if page < pages %}<a href="?q={{ q }}&status={{ status }}&ministerie={{ ministerie }}&page={{ page + 1 }}">Volgende →</a>{% endif %}
+</div>
+{% endif %}
+
+{% else %}
+<div class="leeg">
+  <strong>Geen toezeggingen gevonden</strong>
+</div>
+{% endif %}
+
+<!-- Top ministeries sidebar-achtig blok -->
+{% if stats.top_ministeries %}
+<div class="tz-ministerie-overzicht">
+  <h3>Openstaand per ministerie</h3>
+  {% for naam, n in stats.top_ministeries %}
+  <a href="/toezeggingen?status=Openstaand&ministerie={{ naam }}" class="tz-min-rij">
+    <span class="tz-min-naam">{{ naam }}</span>
+    <span class="tz-min-n">{{ n }}</span>
+  </a>
+  {% endfor %}
+</div>
+{% endif %}
+
+{% endblock %}

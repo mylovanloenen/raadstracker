@@ -50,6 +50,12 @@ TYPE_LABEL = {
     'motie': 'Motie',
     'schriftelijke_vraag': 'Schriftelijke vraag',
     'ingekomen_stuk': 'Ingekomen stuk',
+    'interpellatie': 'Interpellatie',
+}
+
+BRON_LABEL = {
+    'amsterdam': 'Amsterdam',
+    'tweedekamer': 'Tweede Kamer',
 }
 
 
@@ -63,8 +69,9 @@ def items_als_context(items: list[dict]) -> str:
     for i, item in enumerate(items, 1):
         type_naam = TYPE_LABEL.get(item['type'], item['type'])
         uitslag = item.get('uitslag') or 'openstaand'
+        bron = BRON_LABEL.get(item.get('gemeente_slug', ''), item.get('gemeente_slug', ''))
         lines.append(
-            f"[{i}] {type_naam}: {item['titel']}\n"
+            f"[{i}] [{bron}] {type_naam}: {item['titel']}\n"
             f"    Indiener: {item['indiener'] or 'onbekend'} | "
             f"Datum: {item['datum_ingediend'] or 'onbekend'} | "
             f"Status: {uitslag}"
@@ -75,9 +82,9 @@ def items_als_context(items: list[dict]) -> str:
 # ── Pagina's ──────────────────────────────────────────────────────────────────
 
 @app.get("/", response_class=HTMLResponse)
-async def home(request: Request, q: str = "", type: str = "", page: int = 1):
-    resultaat = db.zoek_items(q=q, type_filter=type, page=page)
-    stats = db.get_stats()
+async def home(request: Request, q: str = "", type: str = "", bron: str = "", page: int = 1):
+    resultaat = db.zoek_items(q=q, type_filter=type, gemeente_slug=bron, page=page)
+    stats = db.get_stats(bron)
     today = date.today().isoformat()
     return templates.TemplateResponse("index.html", {
         "request": request,
@@ -87,6 +94,7 @@ async def home(request: Request, q: str = "", type: str = "", page: int = 1):
         "pages": resultaat["pages"],
         "q": q,
         "type": type,
+        "bron": bron,
         "stats": stats,
         "today": today,
         "week": (date.today() + timedelta(days=7)).isoformat(),
@@ -111,6 +119,23 @@ async def briefing_page(request: Request):
     return templates.TemplateResponse("briefing.html", {"request": request})
 
 
+@app.get("/nieuws", response_class=HTMLResponse)
+async def nieuws_page(request: Request):
+    vandaag = db.get_nieuw_vandaag(uren=24)
+    stats = db.get_stats()
+    heeft_nieuws = any([
+        vandaag["amsterdam"], vandaag["tweedekamer"],
+        vandaag["toezeggingen_nieuw"], vandaag["toezeggingen_over"],
+    ])
+    return templates.TemplateResponse("nieuws.html", {
+        "request": request,
+        "vandaag": vandaag,
+        "heeft_nieuws": heeft_nieuws,
+        "today": date.today().isoformat(),
+        "stats": stats,
+    })
+
+
 @app.get("/vraag", response_class=HTMLResponse)
 async def vraag_page(request: Request):
     return templates.TemplateResponse("vraag.html", {"request": request})
@@ -119,6 +144,32 @@ async def vraag_page(request: Request):
 @app.get("/chat", response_class=HTMLResponse)
 async def chat_page(request: Request):
     return templates.TemplateResponse("chat.html", {"request": request})
+
+
+@app.get("/toezeggingen", response_class=HTMLResponse)
+async def toezeggingen_page(
+    request: Request,
+    q: str = "",
+    status: str = "Openstaand",
+    ministerie: str = "",
+    page: int = 1,
+):
+    resultaat = db.get_toezeggingen(status=status, ministerie=ministerie, q=q, page=page)
+    stats = db.get_toezegging_stats()
+    today = date.today().isoformat()
+    return templates.TemplateResponse("toezeggingen.html", {
+        "request": request,
+        "items": resultaat["items"],
+        "totaal": resultaat["totaal"],
+        "page": resultaat["page"],
+        "pages": resultaat["pages"],
+        "ministeries": resultaat["ministeries"],
+        "stats": stats,
+        "q": q,
+        "status": status,
+        "ministerie": ministerie,
+        "today": today,
+    })
 
 
 # ── API: briefing (streaming) ─────────────────────────────────────────────────
@@ -139,24 +190,24 @@ async def api_briefing(onderwerpen: str = Form(...)):
 
 Onderwerpen: {', '.join(termen)}
 
-Raadsitems uit het archief ({len(items)} stuks):
+Items uit het archief ({len(items)} stuks, van Amsterdam én Tweede Kamer):
 {context}
 
 Schrijf een heldere, professionele briefing in vloeiend Nederlands met de volgende opbouw:
 
 **Kernpunten**
-Wat speelt er momenteel op deze onderwerpen? Benoem de belangrijkste ontwikkelingen concreet.
+Wat speelt er momenteel op deze onderwerpen, zowel lokaal als nationaal? Benoem de belangrijkste ontwikkelingen concreet.
 
 **Openstaande items**
 Welke moties of vragen zijn nog niet afgedaan? Noem indiener en datum.
 
-**Aandachtspunten**
-Zijn er termijnen die naderen of verlopen zijn?
+**Nationaal vs. lokaal**
+Zijn er relevante ontwikkelingen in de Tweede Kamer die het Amsterdamse beleid raken?
 
 **Suggestievragen**
-2-3 scherpe, concrete vragen die het raadslid kan stellen in de vergadering.
+2-3 scherpe, concrete vragen die het raadslid kan stellen.
 
-Verwijs naar stukken met [nummer]. Wees concreet en gebruik specifieke informatie uit de items."""
+Verwijs naar stukken met [nummer]. Geef aan of een stuk van Amsterdam of de Tweede Kamer komt. Wees concreet."""
 
     async def stream():
         client = get_claude()
@@ -187,10 +238,11 @@ async def api_vraag(vraag: str = Form(...)):
         items = db.get_recent_items(limit=10)
 
     context = items_als_context(items)
-    prompt = f"""Je bent een deskundige assistent voor het Amsterdamse gemeenteraadsarchief met toegang tot raadsitems van de afgelopen jaren.
+    prompt = f"""Je bent een deskundige politiek assistent met toegang tot het archief van de Amsterdamse gemeenteraad én de Tweede Kamer.
 
-Beantwoord de vraag op basis van de onderstaande raadsitems. Richtlijnen:
+Beantwoord de vraag op basis van de onderstaande raads- en Kameritems. Richtlijnen:
 - Schrijf in vloeiend, helder Nederlands
+- Geef aan of een item van Amsterdam of de Tweede Kamer afkomstig is wanneer dat relevant is
 - Noem concrete details zoals indiener, datum en uitslag wanneer relevant
 - Verwijs naar items met [nummer] als je ernaar verwijst
 - Pas de lengte aan op de vraag: eenvoudige vragen krijgen een bondig antwoord, complexe vragen een uitgebreider antwoord
@@ -199,7 +251,7 @@ Beantwoord de vraag op basis van de onderstaande raadsitems. Richtlijnen:
 
 Vraag: {vraag}
 
-Beschikbare raadsitems ({len(items)} stuks):
+Beschikbare items ({len(items)} stuks):
 {context}"""
 
     async def stream():
@@ -219,29 +271,88 @@ Beschikbare raadsitems ({len(items)} stuks):
     return StreamingResponse(stream(), media_type="text/event-stream")
 
 
-# ── API: scrape trigger (voor cron) ──────────────────────────────────────────
+# ── API: dagelijkse update (voor cron) ───────────────────────────────────────
+
+@app.get("/api/nieuws-briefing-get")
+@app.post("/api/nieuws-briefing")
+async def api_nieuws_briefing():
+    """Streaming AI-samenvatting van wat er vandaag nieuw is."""
+    vandaag = db.get_nieuw_vandaag(uren=48)
+
+    regels = []
+    if vandaag["amsterdam"]:
+        regels.append(f"\n**Nieuw Amsterdam ({len(vandaag['amsterdam'])} items):**")
+        for it in vandaag["amsterdam"][:10]:
+            regels.append(f"- [{TYPE_LABEL.get(it['type'], it['type'])}] {it['titel']} (indiener: {it['indiener'] or '?'}, {it['datum_ingediend'] or '?'})")
+
+    if vandaag["tweedekamer"]:
+        regels.append(f"\n**Nieuw Tweede Kamer ({len(vandaag['tweedekamer'])} items):**")
+        for it in vandaag["tweedekamer"][:10]:
+            regels.append(f"- [{TYPE_LABEL.get(it['type'], it['type'])}] {it['titel']} (indiener: {it['indiener'] or '?'}, {it['datum_ingediend'] or '?'})")
+
+    if vandaag["toezeggingen_over"]:
+        regels.append(f"\n**Toezeggingen met verstreken deadline ({len(vandaag['toezeggingen_over'])}):**")
+        for tz in vandaag["toezeggingen_over"][:5]:
+            regels.append(f"- {tz['naam']} ({tz['functie']}): {tz['tekst'][:120]}… [deadline: {tz['datum_nakoming']}]")
+
+    if not regels:
+        async def leeg():
+            yield "data: Er zijn vandaag geen nieuwe items in het archief.\\n\\n"
+            yield "data: [KLAAR]\\n\\n"
+        return StreamingResponse(leeg(), media_type="text/event-stream")
+
+    context = "\n".join(regels)
+    prompt = f"""Je bent een politiek adviseur die elke ochtend een compacte briefing opstelt voor een Amsterdams raadslid.
+
+Hier is een overzicht van wat er de afgelopen 48 uur nieuw is binnengekomen:
+
+{context}
+
+Schrijf een heldere ochtend-briefing in vloeiend Nederlands. Structuur:
+- Start met een zin over de stemming/toon van de nieuwe stukken
+- Benoem de meest politiek relevante nieuwe items (focus op Amsterdam)
+- Signaleer als er nationale TK-items zijn die direct raken aan Amsterdams beleid
+- Sluit af met max. 2 aandachtspunten voor vandaag
+
+Wees bondig — maximaal 250 woorden. Geen bullet points, gewoon lopende tekst in alinea's."""
+
+    async def stream():
+        client = get_claude()
+        with client.messages.stream(
+            model="claude-sonnet-4-6",
+            max_tokens=400,
+            messages=[{"role": "user", "content": prompt}],
+        ) as s:
+            for text in s.text_stream:
+                escaped = text.replace("\n", "\\n")
+                yield f"data: {escaped}\n\n"
+        yield "data: [KLAAR]\n\n"
+
+    return StreamingResponse(stream(), media_type="text/event-stream")
+
+
+@app.post("/api/dagelijkse-update")
+async def api_dagelijkse_update(background_tasks: BackgroundTasks, token: str = Form(...)):
+    if token != os.environ.get("SCRAPE_TOKEN", ""):
+        return {"error": "Ongeldig token"}
+
+    def run_update():
+        from dagelijkse_update import run
+        run(dagen=3)
+
+    background_tasks.add_task(run_update)
+    return {"status": "dagelijkse update gestart"}
+
 
 @app.post("/api/scrape")
 async def api_scrape(background_tasks: BackgroundTasks, token: str = Form(...)):
+    """Backwards-compat alias voor /api/dagelijkse-update."""
     if token != os.environ.get("SCRAPE_TOKEN", ""):
         return {"error": "Ongeldig token"}
 
     def run_scrape():
-        import yaml
-        from scraper import scrape_all
-        with open("config.yaml") as f:
-            config = yaml.safe_load(f)
-        items = scrape_all(config)
-        nieuw = 0
-        for item in items:
-            is_new, _ = db.upsert_item(item)
-            if is_new:
-                nieuw += 1
-        try:
-            db.rebuild_fts()
-        except Exception:
-            pass
-        logger.info(f"Scrape klaar: {nieuw} nieuw van {len(items)}")
+        from dagelijkse_update import run
+        run(dagen=3)
 
     background_tasks.add_task(run_scrape)
     return {"status": "scrape gestart"}

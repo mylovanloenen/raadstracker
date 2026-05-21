@@ -3,29 +3,41 @@
 
 {% block content %}
 <div class="pagina-header">
-  <h1>Raadsarchief Amsterdam</h1>
-  <p>{{ stats.totaal }} items — laatste update {{ stats.laatste_update[:10] if stats.laatste_update else '—' }}</p>
+  <h1>Politiek Archief</h1>
+  <p>{{ stats.totaal }} items
+    {% if stats.per_bron %}—
+      {% for naam, n in stats.per_bron.items() %}{{ naam }}: {{ n }}{% if not loop.last %}, {% endif %}{% endfor %}
+    {% endif %}
+  </p>
 </div>
 
-<div class="stats-rij">
-  {% for type, n in stats.per_type.items() %}
-  <div class="stat-blok">
-    <div class="stat-getal">{{ n }}</div>
-    <div class="stat-label">{{ 'Moties' if type == 'motie' else 'Schriftelijke vragen' if type == 'schriftelijke_vraag' else 'Ingekomen stukken' }}</div>
-  </div>
-  {% endfor %}
+<!-- Bron-tabs -->
+<div class="bron-tabs">
+  <a href="/?q={{ q }}&type={{ type }}" class="bron-tab {% if not bron %}actief{% endif %}">Alle bronnen</a>
+  <a href="/?q={{ q }}&type={{ type }}&bron=amsterdam" class="bron-tab {% if bron == 'amsterdam' %}actief{% endif %}">
+    Amsterdam
+  </a>
+  <a href="/?q={{ q }}&type={{ type }}&bron=tweedekamer" class="bron-tab {% if bron == 'tweedekamer' %}actief{% endif %}">
+    Tweede Kamer
+  </a>
 </div>
 
 <form class="zoekbalk" method="get" action="/">
+  <input type="hidden" name="bron" value="{{ bron }}">
   <input type="search" name="q" value="{{ q }}" placeholder="Zoek in titel, indiener…" autofocus>
   <select name="type" onchange="this.form.submit()">
     <option value="" {% if not type %}selected{% endif %}>Alle types</option>
     <option value="motie" {% if type == 'motie' %}selected{% endif %}>Moties</option>
     <option value="schriftelijke_vraag" {% if type == 'schriftelijke_vraag' %}selected{% endif %}>Schriftelijke vragen</option>
+    {% if not bron or bron == 'amsterdam' %}
     <option value="ingekomen_stuk" {% if type == 'ingekomen_stuk' %}selected{% endif %}>Ingekomen stukken</option>
+    {% endif %}
+    {% if not bron or bron == 'tweedekamer' %}
+    <option value="interpellatie" {% if type == 'interpellatie' %}selected{% endif %}>Interpellaties</option>
+    {% endif %}
   </select>
   <button class="btn btn-primair" type="submit">Zoeken</button>
-  {% if q or type %}<a class="btn btn-secundair" href="/">Wis filter</a>{% endif %}
+  {% if q or type %}<a class="btn btn-secundair" href="/?bron={{ bron }}">Wis filter</a>{% endif %}
 </form>
 
 {% if items %}
@@ -45,8 +57,11 @@
       </div>
     </div>
     <div class="item-rechts">
+      {% if item.gemeente_slug == 'tweedekamer' %}
+      <span class="badge badge-tk">TK</span>
+      {% endif %}
       <span class="badge badge-{{ item.type.replace('_', '-') }}">
-        {{ 'Motie' if item.type == 'motie' else 'S. vraag' if item.type == 'schriftelijke_vraag' else 'Ingekomen' }}
+        {{ 'Motie' if item.type == 'motie' else 'S. vraag' if item.type == 'schriftelijke_vraag' else 'Interpellatie' if item.type == 'interpellatie' else 'Ingekomen' }}
       </span>
       {% if item.uitslag %}
       <span class="badge badge-{{ 'aangenomen' if 'aangenomen' in item.uitslag.lower() else 'verworpen' if 'verworpen' in item.uitslag.lower() else '' }}">
@@ -60,17 +75,17 @@
 
 {% if pages > 1 %}
 <div class="paginering">
-  {% if page > 1 %}<a href="?q={{ q }}&type={{ type }}&page={{ page - 1 }}">← Vorige</a>{% endif %}
+  {% if page > 1 %}<a href="?q={{ q }}&type={{ type }}&bron={{ bron }}&page={{ page - 1 }}">← Vorige</a>{% endif %}
   {% for p in range(1, pages + 1) %}
     {% if p == page %}
       <span class="actief">{{ p }}</span>
     {% elif p == 1 or p == pages or (p >= page - 2 and p <= page + 2) %}
-      <a href="?q={{ q }}&type={{ type }}&page={{ p }}">{{ p }}</a>
+      <a href="?q={{ q }}&type={{ type }}&bron={{ bron }}&page={{ p }}">{{ p }}</a>
     {% elif p == page - 3 or p == page + 3 %}
       <span>…</span>
     {% endif %}
   {% endfor %}
-  {% if page < pages %}<a href="?q={{ q }}&type={{ type }}&page={{ page + 1 }}">Volgende →</a>{% endif %}
+  {% if page < pages %}<a href="?q={{ q }}&type={{ type }}&bron={{ bron }}&page={{ page + 1 }}">Volgende →</a>{% endif %}
 </div>
 {% endif %}
 

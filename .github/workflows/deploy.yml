@@ -1,0 +1,32 @@
+name: Deploy & dagelijkse update
+
+on:
+  push:
+    branches: [main]
+  schedule:
+    # Dagelijks om 06:00 UTC (= 07:00 CET / 08:00 CEST)
+    - cron: '0 6 * * *'
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    name: Deploy naar Fly.io
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: superfly/flyctl-actions/setup-flyctl@master
+      - run: flyctl deploy --remote-only
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+
+  dagelijkse-update:
+    name: Dagelijkse data-update
+    runs-on: ubuntu-latest
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    steps:
+      - name: Trigger dagelijkse update
+        run: |
+          curl -s -X POST https://raadstracker.fly.dev/api/dagelijkse-update \
+            -d "token=${{ secrets.SCRAPE_TOKEN }}" \
+            -H "Content-Type: application/x-www-form-urlencoded"

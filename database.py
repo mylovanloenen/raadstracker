@@ -6,6 +6,25 @@ from pathlib import Path
 DB_PATH = Path(os.environ.get("DB_PATH", Path(__file__).parent / "tracker.db"))
 
 SCHEMA = """
+CREATE TABLE IF NOT EXISTS toezeggingen (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    extern_id TEXT UNIQUE NOT NULL,
+    nummer TEXT,
+    bron TEXT NOT NULL DEFAULT 'tweedekamer',
+    tekst TEXT NOT NULL,
+    status TEXT NOT NULL DEFAULT 'Openstaand',
+    naam TEXT,
+    functie TEXT,
+    ministerie TEXT,
+    activiteit_nummer TEXT,
+    aanmaakdatum TEXT,
+    datum_nakoming TEXT,
+    aangemaakt TEXT DEFAULT (datetime('now'))
+);
+
+CREATE INDEX IF NOT EXISTS idx_toezeggingen_status ON toezeggingen(status);
+CREATE INDEX IF NOT EXISTS idx_toezeggingen_ministerie ON toezeggingen(ministerie);
+
 CREATE TABLE IF NOT EXISTS gemeenten (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     slug TEXT UNIQUE NOT NULL,
@@ -261,10 +280,11 @@ def _fts_query(q: str) -> str:
 def zoek_items(
     q: str = "",
     type_filter: str = "",
-    gemeente_slug: str = "amsterdam",
+    gemeente_slug: str = "",
     page: int = 1,
     per_page: int = 30,
 ) -> dict:
+    """Zoek items. gemeente_slug='' = alle bronnen."""
     offset = (page - 1) * per_page
     with get_connection() as conn:
         if q:
@@ -273,31 +293,32 @@ def zoek_items(
                 """SELECT i.* FROM items i
                    JOIN items_fts f ON i.id = f.rowid
                    WHERE items_fts MATCH ?
-                   AND i.gemeente_slug = ?
+                   AND (? = '' OR i.gemeente_slug = ?)
                    AND (? = '' OR i.type = ?)
                    ORDER BY rank
                    LIMIT ? OFFSET ?""",
-                (fts_q, gemeente_slug, type_filter, type_filter, per_page, offset),
+                (fts_q, gemeente_slug, gemeente_slug, type_filter, type_filter, per_page, offset),
             ).fetchall()
             totaal = conn.execute(
                 """SELECT COUNT(*) FROM items i
                    JOIN items_fts f ON i.id = f.rowid
-                   WHERE items_fts MATCH ? AND i.gemeente_slug = ?
+                   WHERE items_fts MATCH ?
+                   AND (? = '' OR i.gemeente_slug = ?)
                    AND (? = '' OR i.type = ?)""",
-                (fts_q, gemeente_slug, type_filter, type_filter),
+                (fts_q, gemeente_slug, gemeente_slug, type_filter, type_filter),
             ).fetchone()[0]
         else:
             rows = conn.execute(
                 """SELECT * FROM items
-                   WHERE gemeente_slug = ?
+                   WHERE (? = '' OR gemeente_slug = ?)
                    AND (? = '' OR type = ?)
                    ORDER BY datum_ingediend DESC, aangemaakt DESC
                    LIMIT ? OFFSET ?""",
-                (gemeente_slug, type_filter, type_filter, per_page, offset),
+                (gemeente_slug, gemeente_slug, type_filter, type_filter, per_page, offset),
             ).fetchall()
             totaal = conn.execute(
-                "SELECT COUNT(*) FROM items WHERE gemeente_slug = ? AND (? = '' OR type = ?)",
-                (gemeente_slug, type_filter, type_filter),
+                "SELECT COUNT(*) FROM items WHERE (? = '' OR gemeente_slug = ?) AND (? = '' OR type = ?)",
+                (gemeente_slug, gemeente_slug, type_filter, type_filter),
             ).fetchone()[0]
 
     return {
@@ -309,8 +330,8 @@ def zoek_items(
     }
 
 
-def zoek_voor_briefing(termen: list[str], gemeente_slug: str = "amsterdam", limit: int = 20) -> list[dict]:
-    """FTS search: eerst AND (precies), daarna OR (breed), resultaten gecombineerd."""
+def zoek_voor_briefing(termen: list[str], gemeente_slug: str = "", limit: int = 20) -> list[dict]:
+    """FTS search: eerst AND (precies), daarna OR (breed). gemeente_slug='' = alle bronnen."""
     if not termen:
         return []
     schone = [t.strip() for t in termen if t.strip()]
@@ -323,14 +344,14 @@ def zoek_voor_briefing(termen: list[str], gemeente_slug: str = "amsterdam", limi
                 return conn.execute(
                     """SELECT i.* FROM items i
                        JOIN items_fts f ON i.id = f.rowid
-                       WHERE items_fts MATCH ? AND i.gemeente_slug = ?
+                       WHERE items_fts MATCH ?
+                       AND (? = '' OR i.gemeente_slug = ?)
                        ORDER BY rank LIMIT ?""",
-                    (query, gemeente_slug, limit),
+                    (query, gemeente_slug, gemeente_slug, limit),
                 ).fetchall()
             except Exception:
                 return []
 
-        # Strategie 1: alle termen moeten voorkomen (AND)
         if len(schone) > 1:
             and_query = " ".join(f'"{t}"*' for t in schone)
             for r in zoek(and_query):
@@ -338,7 +359,6 @@ def zoek_voor_briefing(termen: list[str], gemeente_slug: str = "amsterdam", limi
                     resultaten.append(dict(r))
                     gezien.add(r["id"])
 
-        # Strategie 2: minstens één term (OR) — vult aan tot limit
         or_query = " OR ".join(f'"{t}"*' for t in schone)
         for r in zoek(or_query):
             if r["id"] not in gezien:
@@ -348,6 +368,37 @@ def zoek_voor_briefing(termen: list[str], gemeente_slug: str = "amsterdam", limi
                 break
 
     return resultaten[:limit]
+
+
+def get_nieuw_vandaag(uren: int = 24) -> dict:
+    """Items en toezeggingen toegevoegd in de afgelopen N uur."""
+    with get_connection() as conn:
+        items_ams = conn.execute(
+            """SELECT * FROM items WHERE gemeente_slug = 'amsterdam'
+               AND aangemaakt >= datetime('now', ?) ORDER BY aangemaakt DESC LIMIT 20""",
+            (f"-{uren} hours",),
+        ).fetchall()
+        items_tk = conn.execute(
+            """SELECT * FROM items WHERE gemeente_slug = 'tweedekamer'
+               AND aangemaakt >= datetime('now', ?) ORDER BY aangemaakt DESC LIMIT 20""",
+            (f"-{uren} hours",),
+        ).fetchall()
+        tz_nieuw = conn.execute(
+            """SELECT * FROM toezeggingen WHERE status = 'Openstaand'
+               AND aangemaakt >= datetime('now', ?) ORDER BY aangemaakt DESC LIMIT 10""",
+            (f"-{uren} hours",),
+        ).fetchall()
+        tz_over = conn.execute(
+            """SELECT * FROM toezeggingen WHERE status = 'Openstaand'
+               AND datum_nakoming IS NOT NULL AND datum_nakoming < date('now')
+               ORDER BY datum_nakoming ASC LIMIT 10""",
+        ).fetchall()
+    return {
+        "amsterdam": [dict(r) for r in items_ams],
+        "tweedekamer": [dict(r) for r in items_tk],
+        "toezeggingen_nieuw": [dict(r) for r in tz_nieuw],
+        "toezeggingen_over": [dict(r) for r in tz_over],
+    }
 
 
 def get_recent_items(gemeente_slug: str = "amsterdam", limit: int = 10) -> list[dict]:
@@ -366,16 +417,111 @@ def get_item(item_id: int) -> dict | None:
     return dict(row) if row else None
 
 
-def get_stats(gemeente_slug: str = "amsterdam") -> dict:
+def upsert_toezegging(t: dict) -> bool:
+    """Insert or update een toezegging. Geeft True terug als nieuw."""
+    with get_connection() as conn:
+        existing = conn.execute(
+            "SELECT id FROM toezeggingen WHERE extern_id = ?", (t["extern_id"],)
+        ).fetchone()
+        if existing:
+            conn.execute(
+                """UPDATE toezeggingen SET status=?, datum_nakoming=?, tekst=?
+                   WHERE extern_id=?""",
+                (t["status"], t.get("datum_nakoming"), t["tekst"], t["extern_id"]),
+            )
+            return False
+        conn.execute(
+            """INSERT INTO toezeggingen
+               (extern_id, nummer, bron, tekst, status, naam, functie, ministerie,
+                activiteit_nummer, aanmaakdatum, datum_nakoming)
+               VALUES (?,?,?,?,?,?,?,?,?,?,?)""",
+            (
+                t["extern_id"], t.get("nummer"), t.get("bron", "tweedekamer"),
+                t["tekst"], t["status"], t.get("naam"), t.get("functie"),
+                t.get("ministerie"), t.get("activiteit_nummer"),
+                t.get("aanmaakdatum"), t.get("datum_nakoming"),
+            ),
+        )
+        return True
+
+
+def get_toezeggingen(
+    status: str = "Openstaand",
+    ministerie: str = "",
+    q: str = "",
+    page: int = 1,
+    per_page: int = 40,
+) -> dict:
+    offset = (page - 1) * per_page
+    with get_connection() as conn:
+        filters = ["(? = '' OR status = ?)", "(? = '' OR ministerie LIKE ?)"]
+        params_base = [status, status, ministerie, f"%{ministerie}%"]
+
+        if q:
+            filters.append("tekst LIKE ?")
+            params_base.append(f"%{q}%")
+
+        where = " AND ".join(filters)
+        rows = conn.execute(
+            f"SELECT * FROM toezeggingen WHERE {where} ORDER BY aanmaakdatum DESC LIMIT ? OFFSET ?",
+            params_base + [per_page, offset],
+        ).fetchall()
+        totaal = conn.execute(
+            f"SELECT COUNT(*) FROM toezeggingen WHERE {where}",
+            params_base,
+        ).fetchone()[0]
+
+        ministeries = conn.execute(
+            "SELECT DISTINCT ministerie FROM toezeggingen WHERE ministerie IS NOT NULL ORDER BY ministerie"
+        ).fetchall()
+
+    return {
+        "items": [dict(r) for r in rows],
+        "totaal": totaal,
+        "page": page,
+        "per_page": per_page,
+        "pages": max(1, (totaal + per_page - 1) // per_page),
+        "ministeries": [r["ministerie"] for r in ministeries],
+    }
+
+
+def get_toezegging_stats() -> dict:
+    with get_connection() as conn:
+        per_status = conn.execute(
+            "SELECT status, COUNT(*) as n FROM toezeggingen GROUP BY status"
+        ).fetchall()
+        top_ministeries = conn.execute(
+            """SELECT ministerie, COUNT(*) as n FROM toezeggingen
+               WHERE status = 'Openstaand' AND ministerie IS NOT NULL
+               GROUP BY ministerie ORDER BY n DESC LIMIT 10"""
+        ).fetchall()
+    return {
+        "per_status": {r["status"]: r["n"] for r in per_status},
+        "top_ministeries": [(r["ministerie"], r["n"]) for r in top_ministeries],
+    }
+
+
+def get_stats(gemeente_slug: str = "") -> dict:
+    """Stats voor één bron of alle bronnen (gemeente_slug='')."""
     with get_connection() as conn:
         totaal = conn.execute(
-            "SELECT COUNT(*) FROM items WHERE gemeente_slug = ?", (gemeente_slug,)
+            "SELECT COUNT(*) FROM items WHERE (? = '' OR gemeente_slug = ?)",
+            (gemeente_slug, gemeente_slug),
         ).fetchone()[0]
         per_type = conn.execute(
-            "SELECT type, COUNT(*) as n FROM items WHERE gemeente_slug = ? GROUP BY type",
-            (gemeente_slug,),
+            "SELECT type, COUNT(*) as n FROM items WHERE (? = '' OR gemeente_slug = ?) GROUP BY type",
+            (gemeente_slug, gemeente_slug),
         ).fetchall()
         laatste = conn.execute(
-            "SELECT MAX(aangemaakt) FROM items WHERE gemeente_slug = ?", (gemeente_slug,)
+            "SELECT MAX(aangemaakt) FROM items WHERE (? = '' OR gemeente_slug = ?)",
+            (gemeente_slug, gemeente_slug),
         ).fetchone()[0]
-    return {"totaal": totaal, "per_type": {r["type"]: r["n"] for r in per_type}, "laatste_update": laatste}
+        per_bron = conn.execute(
+            "SELECT g.naam, COUNT(i.id) as n FROM items i JOIN gemeenten g ON g.slug = i.gemeente_slug GROUP BY i.gemeente_slug",
+        ).fetchall()
+    return {
+        "totaal": totaal,
+        "per_type": {r["type"]: r["n"] for r in per_type},
+        "laatste_update": laatste,
+        "per_bron": {r["naam"]: r["n"] for r in per_bron},
+    }

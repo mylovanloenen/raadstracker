@@ -1,0 +1,180 @@
+{% extends "base.html" %}
+{% block title %}Nieuws van vandaag{% endblock %}
+
+{% block content %}
+<div class="pagina-header">
+  <h1>Nieuws van vandaag</h1>
+  <p>{{ today }} — nieuw in de afgelopen 24 uur</p>
+</div>
+
+<!-- AI Briefing kaart -->
+<div class="ai-briefing-kaart" id="briefingKaart">
+  <div class="ai-briefing-header">
+    <div class="ai-avatar-klein">
+      <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+        <circle cx="7" cy="7" r="6" fill="white" opacity=".9"/>
+        <path d="M4 7h6M7 4v6" stroke="#003082" stroke-width="1.5" stroke-linecap="round"/>
+      </svg>
+    </div>
+    <span>AI Ochtend-briefing</span>
+    <button class="briefing-ververs-btn" id="briefingBtn" onclick="laadBriefing()">Genereer briefing</button>
+  </div>
+  <div class="ai-briefing-inhoud" id="briefingInhoud">
+    <p class="briefing-placeholder">Klik op "Genereer briefing" voor een AI-samenvatting van het nieuws van vandaag.</p>
+  </div>
+</div>
+
+{% if niet heeft_nieuws %}
+<div class="leeg" style="margin-top: 32px;">
+  <strong>Nog geen nieuwe items vandaag</strong>
+  <p>Kom later terug of bekijk het volledige <a href="/">archief</a>.</p>
+</div>
+{% endif %}
+
+{% if vandaag.amsterdam %}
+<section class="nieuws-sectie">
+  <div class="nieuws-sectie-header">
+    <h2>Amsterdam — {{ vandaag.amsterdam|length }} nieuw</h2>
+    <a href="/?bron=amsterdam" class="nieuws-meer">Heel archief →</a>
+  </div>
+  <div class="items-lijst">
+    {% for item in vandaag.amsterdam %}
+    <a class="item-kaart" href="/item/{{ item.id }}">
+      <div>
+        <div class="item-titel">{{ item.titel or '(geen titel)' }}</div>
+        <div class="item-meta">
+          <span>{{ item.indiener or '—' }}</span>
+          <span>{{ item.datum_ingediend or '?' }}</span>
+        </div>
+      </div>
+      <div class="item-rechts">
+        <span class="badge badge-{{ item.type.replace('_', '-') }}">
+          {{ 'Motie' if item.type == 'motie' else 'S. vraag' if item.type == 'schriftelijke_vraag' else 'Ingekomen' }}
+        </span>
+      </div>
+    </a>
+    {% endfor %}
+  </div>
+</section>
+{% endif %}
+
+{% if vandaag.tweedekamer %}
+<section class="nieuws-sectie">
+  <div class="nieuws-sectie-header">
+    <h2>Tweede Kamer — {{ vandaag.tweedekamer|length }} nieuw</h2>
+    <a href="/?bron=tweedekamer" class="nieuws-meer">Heel archief →</a>
+  </div>
+  <div class="items-lijst">
+    {% for item in vandaag.tweedekamer %}
+    <a class="item-kaart" href="/item/{{ item.id }}">
+      <div>
+        <div class="item-titel">{{ item.titel or '(geen titel)' }}</div>
+        <div class="item-meta">
+          <span>{{ item.indiener or '—' }}</span>
+          <span>{{ item.datum_ingediend or '?' }}</span>
+        </div>
+      </div>
+      <div class="item-rechts">
+        <span class="badge badge-tk">TK</span>
+        <span class="badge badge-{{ item.type.replace('_', '-') }}">
+          {{ 'Motie' if item.type == 'motie' else 'S. vraag' }}
+        </span>
+      </div>
+    </a>
+    {% endfor %}
+  </div>
+</section>
+{% endif %}
+
+{% if vandaag.toezeggingen_over %}
+<section class="nieuws-sectie">
+  <div class="nieuws-sectie-header">
+    <h2>Toezeggingen — deadline verstreken</h2>
+    <a href="/toezeggingen" class="nieuws-meer">Alle toezeggingen →</a>
+  </div>
+  <div class="toezeggingen-lijst">
+    {% for t in vandaag.toezeggingen_over %}
+    <div class="toezegging-kaart tz-open">
+      <div class="tz-status-balk" style="background: var(--rood)"></div>
+      <div class="tz-body">
+        <p class="tz-tekst">{{ t.tekst }}</p>
+        <div class="tz-meta">
+          <span class="tz-persoon">{{ t.naam or '—' }}</span>
+          <span class="tz-functie">{{ t.functie or '' }}</span>
+          {% if t.ministerie %}<span class="badge badge-ministerie">{{ t.ministerie }}</span>{% endif %}
+        </div>
+        <div class="tz-footer">
+          <span class="tz-deadline tz-over">Deadline verstreken: {{ t.datum_nakoming }}</span>
+        </div>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+</section>
+{% endif %}
+
+{% if vandaag.toezeggingen_nieuw %}
+<section class="nieuws-sectie">
+  <div class="nieuws-sectie-header">
+    <h2>Nieuwe toezeggingen</h2>
+    <a href="/toezeggingen" class="nieuws-meer">Alle toezeggingen →</a>
+  </div>
+  <div class="toezeggingen-lijst">
+    {% for t in vandaag.toezeggingen_nieuw %}
+    <div class="toezegging-kaart tz-open">
+      <div class="tz-status-balk"></div>
+      <div class="tz-body">
+        <p class="tz-tekst">{{ t.tekst }}</p>
+        <div class="tz-meta">
+          <span class="tz-persoon">{{ t.naam or '—' }}</span>
+          <span class="tz-functie">{{ t.functie or '' }}</span>
+          {% if t.ministerie %}<span class="badge badge-ministerie">{{ t.ministerie }}</span>{% endif %}
+        </div>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+</section>
+{% endif %}
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+function laadBriefing() {
+  const inhoud = document.getElementById('briefingInhoud');
+  const btn = document.getElementById('briefingBtn');
+  btn.disabled = true;
+  btn.textContent = 'Laden…';
+  inhoud.innerHTML = '<span class="cursor-knipperen"></span>';
+
+  let tekst = '';
+  const src = new EventSource('/api/nieuws-briefing-get');
+
+  function renderMarkdown(t) {
+    return t
+      .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+      .replace(/\n\n/g, '</p><p>')
+      .replace(/\n/g, '<br>');
+  }
+
+  src.onmessage = (e) => {
+    if (e.data === '[KLAAR]') {
+      src.close();
+      inhoud.innerHTML = '<p>' + renderMarkdown(tekst) + '</p>';
+      btn.textContent = 'Ververs';
+      btn.disabled = false;
+      return;
+    }
+    tekst += e.data.replace(/\\n/g, '\n');
+    inhoud.innerHTML = '<p>' + renderMarkdown(tekst) + '</p><span class="cursor-knipperen"></span>';
+  };
+
+  src.onerror = () => {
+    src.close();
+    btn.disabled = false;
+    btn.textContent = 'Opnieuw proberen';
+  };
+}
+</script>
+{% endblock %}
