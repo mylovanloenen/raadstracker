@@ -12,3 +12,17 @@ gebruikers:
       - duurzaamheid
       - veiligheid
       - financiën
+
+  - naam: R.B.F.A. van Loenen
+    email: rbfavanloenen@gmail.com
+    gemeente: amsterdam
+    actief: true
+    onderwerpen:
+      - wonen
+      - volkshuisvesting
+      - openbaar vervoer
+      - jeugdzorg
+      - klimaat
+      - duurzaamheid
+      - veiligheid
+      - financiën
