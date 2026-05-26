@@ -21,12 +21,20 @@ jobs:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
 
   dagelijkse-update:
-    name: Dagelijkse data-update
+    name: Dagelijkse data-update + briefing
     runs-on: ubuntu-latest
     if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
     steps:
       - name: Trigger dagelijkse update
         run: |
           curl -s -X POST https://raadstracker.fly.dev/api/dagelijkse-update \
+            -d "token=${{ secrets.SCRAPE_TOKEN }}" \
+            -H "Content-Type: application/x-www-form-urlencoded"
+          echo "Update gestart, wacht 3 minuten voor briefing..."
+          sleep 180
+
+      - name: Verstuur dagelijkse briefing
+        run: |
+          curl -s -X POST https://raadstracker.fly.dev/api/dagelijkse-briefing \
             -d "token=${{ secrets.SCRAPE_TOKEN }}" \
             -H "Content-Type: application/x-www-form-urlencoded"

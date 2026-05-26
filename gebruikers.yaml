@@ -1,11 +1,14 @@
-# Voeg hier raadsleden toe. Wijzigingen worden opgepikt bij de volgende run.
 gebruikers:
-  - naam: Test Raadslid
-    email: test@example.com
+  - naam: Mylo van Loenen
+    email: mylovanloenen@gmail.com
     gemeente: amsterdam
     actief: true
     onderwerpen:
-      - wonen en volkshuisvesting
-      - daklozenopvang
+      - wonen
+      - volkshuisvesting
+      - openbaar vervoer
       - jeugdzorg
-      - GVB en openbaar vervoer
+      - klimaat
+      - duurzaamheid
+      - veiligheid
+      - financiën
