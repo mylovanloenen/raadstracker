@@ -71,62 +71,51 @@ MAIL_TEMPLATE = """<!DOCTYPE html>
 </div>
 
 {nieuw_amsterdam}
-{nieuw_tk}
 {nieuw_agv}
 {media_sectie}
-{toezeggingen_sectie}
 
 </div>
 <div class="footer">
   <a href="https://raadstracker.fly.dev">Raadstracker</a> &bull;
   <a href="https://raadstracker.fly.dev/nieuws">Nieuws vandaag</a> &bull;
-  <a href="https://raadstracker.fly.dev/toezeggingen">Toezeggingen</a>
+  <a href="https://raadstracker.fly.dev/?bron=amsterdam">Archief Amsterdam</a>
 </div>
 </body>
 </html>"""
 
 
 def genereer_ai_samenvatting(vandaag: dict, media: list) -> str:
-    """Genereer een vloeiende AI-briefing via Claude."""
+    """Genereer een vloeiende AI-briefing via Claude, puur lokaal Amsterdam."""
     regels = []
 
     if vandaag["amsterdam"]:
-        regels.append(f"\nNieuwe Amsterdam-items ({len(vandaag['amsterdam'])}):")
-        for it in vandaag["amsterdam"][:8]:
+        regels.append(f"\nNieuwe stukken gemeenteraad Amsterdam ({len(vandaag['amsterdam'])}):")
+        for it in vandaag["amsterdam"][:10]:
             regels.append(f"- [{it['type']}] {it['titel']} (indiener: {it['indiener'] or '?'})")
 
-    if vandaag["tweedekamer"]:
-        regels.append(f"\nNieuwe TK-items ({len(vandaag['tweedekamer'])}):")
-        for it in vandaag["tweedekamer"][:6]:
-            regels.append(f"- {it['titel']} (indiener: {it['indiener'] or '?'})")
-
     if vandaag.get("agv"):
-        regels.append(f"\nNieuwe Waterschap AGV-items ({len(vandaag['agv'])}):")
+        regels.append(f"\nNieuwe stukken Waterschap AGV ({len(vandaag['agv'])}):")
         for it in vandaag["agv"][:4]:
             regels.append(f"- [{it['type']}] {it['titel']} (indiener: {it['indiener'] or '?'})")
 
-    if vandaag["toezeggingen_over"]:
-        regels.append(f"\nToezeggingen met verstreken deadline ({len(vandaag['toezeggingen_over'])}):")
-        for tz in vandaag["toezeggingen_over"][:3]:
-            regels.append(f"- {tz['naam']} ({tz['functie']}): {tz['tekst'][:100]}…")
-
     if media:
-        regels.append(f"\nActueel nieuws ({len(media)} artikelen):")
-        for m in media[:6]:
+        regels.append(f"\nLokaal nieuws ({len(media)} artikelen):")
+        for m in media[:8]:
             regels.append(f"- [{m['bron']}] {m['titel']}")
 
     if not regels:
-        return "<p>Geen nieuwe items vandaag.</p>"
+        return "<p>Geen nieuwe lokale items vandaag.</p>"
 
     context = "\n".join(regels)
     prompt = f"""Je bent een politiek adviseur die elke ochtend een compacte nieuwsbrief schrijft voor een Amsterdams raadslid.
 
-Hier is een overzicht van wat er de afgelopen 24 uur nieuw is:
+Hier is een overzicht van wat er de afgelopen 24 uur lokaal nieuw is in Amsterdam:
 {context}
 
 Schrijf een vloeiende ochtend-briefing van maximaal 200 woorden. Gebruik alinea's, geen bullet points.
-Begin met de belangrijkste ontwikkeling. Sluit af met één concrete aandachtspunt voor vandaag.
-Schrijf in vloeiend Nederlands, informeel maar professioneel."""
+Focus uitsluitend op lokale Amsterdamse politiek: wat speelt er in de raad, in de stadsdeelcommissies en bij het waterschap?
+Begin met de meest politiek relevante ontwikkeling. Sluit af met één concreet aandachtspunt voor vandaag.
+Schrijf in vloeiend Nederlands, informeel maar professioneel. Geen nationale politiek."""
 
     client = anthropic.Anthropic(api_key=os.environ["ANTHROPIC_API_KEY"])
     tekst = client.messages.create(
@@ -200,8 +189,7 @@ def stuur_briefing(naam: str, email: str) -> bool:
     media = db.get_recent_media(uren=24)
 
     heeft_inhoud = any([
-        vandaag["amsterdam"], vandaag["tweedekamer"], vandaag.get("agv"),
-        vandaag["toezeggingen_over"], media,
+        vandaag["amsterdam"], vandaag.get("agv"), media,
     ])
 
     if not heeft_inhoud:
@@ -213,13 +201,8 @@ def stuur_briefing(naam: str, email: str) -> bool:
 
     ams_html = ""
     if vandaag["amsterdam"]:
-        ams_html = f"<h2>Nieuw Amsterdam ({len(vandaag['amsterdam'])})</h2>"
+        ams_html = f"<h2>Nieuw in de gemeenteraad ({len(vandaag['amsterdam'])})</h2>"
         ams_html += bouw_items_html(vandaag["amsterdam"], "badge-ams", "AMS")
-
-    tk_html = ""
-    if vandaag["tweedekamer"]:
-        tk_html = f"<h2>Nieuw Tweede Kamer ({len(vandaag['tweedekamer'])})</h2>"
-        tk_html += bouw_items_html(vandaag["tweedekamer"], "badge-tk", "TK")
 
     agv_html = ""
     if vandaag.get("agv"):
@@ -231,10 +214,8 @@ def stuur_briefing(naam: str, email: str) -> bool:
         datum=date.today().strftime("%-d %B %Y"),
         ai_samenvatting=ai_html,
         nieuw_amsterdam=ams_html,
-        nieuw_tk=tk_html,
         nieuw_agv=agv_html,
         media_sectie=bouw_media_html(media),
-        toezeggingen_sectie=bouw_toezeggingen_html(vandaag["toezeggingen_over"]),
     )
 
     resend.api_key = os.environ["RESEND_API_KEY"]
