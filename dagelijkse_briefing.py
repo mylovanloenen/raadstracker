@@ -181,12 +181,29 @@ def bouw_toezeggingen_html(items: list) -> str:
     return html
 
 
-def stuur_briefing(naam: str, email: str) -> bool:
+def filter_op_onderwerpen(items: list, onderwerpen: list) -> list:
+    """Sorteert items op relevantie voor de opgegeven onderwerpen."""
+    if not onderwerpen:
+        return items
+    termen = [o.lower() for o in onderwerpen]
+
+    def score(item):
+        tekst = (item.get("titel") or "").lower()
+        return sum(1 for t in termen if t in tekst or any(w in tekst for w in t.split()))
+
+    return sorted(items, key=score, reverse=True)
+
+
+def stuur_briefing(naam: str, email: str, onderwerpen: list = None) -> bool:
     db.init_db()
     db.init_media_db()
 
     vandaag = db.get_nieuw_vandaag(uren=24)
     media = db.get_recent_media(uren=24)
+
+    # Sorteer Amsterdam-items op relevantie voor de onderwerpen van deze gebruiker
+    if onderwerpen and vandaag["amsterdam"]:
+        vandaag["amsterdam"] = filter_op_onderwerpen(vandaag["amsterdam"], onderwerpen)
 
     heeft_inhoud = any([
         vandaag["amsterdam"], vandaag.get("agv"), media,
@@ -242,7 +259,7 @@ def run():
         if not g.get("actief", True):
             continue
         try:
-            if stuur_briefing(g["naam"], g["email"]):
+            if stuur_briefing(g["naam"], g["email"], g.get("onderwerpen", [])):
                 verstuurd += 1
         except Exception as e:
             logger.error(f"Fout bij {g['email']}: {e}")

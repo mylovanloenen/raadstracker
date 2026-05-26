@@ -1,0 +1,124 @@
+{% extends "base.html" %}
+{% block title %}Statistieken{% endblock %}
+
+{% block content %}
+<div class="pagina-header">
+  <h1>Statistieken</h1>
+  <p class="pagina-sub">Overzicht van het Amsterdamse raadsarchief</p>
+</div>
+
+<!-- Totalen boven -->
+<div class="stat-kaarten">
+  {% for slug, n in stats.totalen %}
+  <div class="stat-kaart">
+    <div class="stat-getal">{{ "{:,}".format(n).replace(",", ".") }}</div>
+    <div class="stat-label">
+      {% if slug == 'amsterdam' %}Amsterdam gemeenteraad
+      {% elif slug == 'tweedekamer' %}Tweede Kamer
+      {% elif slug == 'waterschap_agv' %}Waterschap AGV
+      {% elif slug.startswith('sdc_') %}SDC {{ slug[4:].title() }}
+      {% else %}{{ slug }}{% endif %}
+    </div>
+  </div>
+  {% endfor %}
+</div>
+
+<!-- Moties aangenomen/verworpen -->
+{% if stats.uitslag %}
+<div class="stat-sectie">
+  <h2>Moties Amsterdam — resultaat</h2>
+  <div class="uitslag-balk-wrapper">
+    {% set aan = stats.uitslag.aangenomen or 0 %}
+    {% set ver = stats.uitslag.verworpen or 0 %}
+    {% set tot = stats.uitslag.totaal_met_uitslag or 1 %}
+    <div class="uitslag-balk">
+      <div class="uitslag-aan" style="width:{{ (aan / tot * 100)|round|int }}%">
+        {{ aan }} aangenomen ({{ (aan / tot * 100)|round|int }}%)
+      </div>
+      <div class="uitslag-ver" style="width:{{ (ver / tot * 100)|round|int }}%">
+        {{ ver }} verworpen
+      </div>
+    </div>
+  </div>
+</div>
+{% endif %}
+
+<!-- Grafiek per maand -->
+<div class="stat-sectie">
+  <h2>Ingediende stukken per maand — Amsterdam</h2>
+  <canvas id="grafiek-maand" height="80"></canvas>
+</div>
+
+<!-- Twee kolommen: types + fracties -->
+<div class="stat-twee-kolommen">
+  <div class="stat-sectie">
+    <h2>Verdeling per type</h2>
+    <canvas id="grafiek-type" height="200"></canvas>
+  </div>
+  <div class="stat-sectie">
+    <h2>Top fracties (enkelvoudig)</h2>
+    <div class="fractie-balk-lijst">
+      {% set max_n = stats.top_fracties[0][1] if stats.top_fracties else 1 %}
+      {% for naam, n in stats.top_fracties %}
+      <a href="/fracties?fractie={{ naam|urlencode }}" class="fractie-balk-rij">
+        <div class="fractie-naam">{{ naam }}</div>
+        <div class="fractie-balk-outer">
+          <div class="fractie-balk-inner" style="width:{{ (n / max_n * 100)|round|int }}%"></div>
+        </div>
+        <div class="fractie-getal">{{ n }}</div>
+      </a>
+      {% endfor %}
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script>
+Chart.defaults.font.family = "-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif";
+Chart.defaults.color = '#6b6963';
+
+// Maandgrafiek
+const maandData = {{ stats.per_maand | tojson }};
+new Chart(document.getElementById('grafiek-maand'), {
+  type: 'bar',
+  data: {
+    labels: maandData.map(d => d[0]),
+    datasets: [{
+      data: maandData.map(d => d[1]),
+      backgroundColor: '#003082',
+      borderRadius: 3,
+    }]
+  },
+  options: {
+    plugins: { legend: { display: false } },
+    scales: {
+      x: { grid: { display: false } },
+      y: { grid: { color: '#f0eeeb' }, beginAtZero: true }
+    }
+  }
+});
+
+// Type grafiek
+const typeData = {{ stats.per_type | tojson }};
+const typeLabels = { 'motie': 'Moties', 'schriftelijke_vraag': 'Schriftelijke vragen', 'ingekomen_stuk': 'Ingekomen stukken', 'interpellatie': 'Interpellaties' };
+new Chart(document.getElementById('grafiek-type'), {
+  type: 'doughnut',
+  data: {
+    labels: typeData.map(d => typeLabels[d[0]] || d[0]),
+    datasets: [{
+      data: typeData.map(d => d[1]),
+      backgroundColor: ['#003082', '#d4a017', '#158a15', '#e74c3c'],
+      borderWidth: 2,
+      borderColor: '#fff',
+    }]
+  },
+  options: {
+    plugins: {
+      legend: { position: 'bottom', labels: { padding: 16 } }
+    }
+  }
+});
+</script>
+{% endblock %}

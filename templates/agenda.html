@@ -1,0 +1,69 @@
+{% extends "base.html" %}
+{% block title %}Agenda{% endblock %}
+
+{% block content %}
+<div class="pagina-header">
+  <h1>Vergaderkalender</h1>
+  <p class="pagina-sub">Aankomende vergaderingen van de Amsterdamse gemeenteraad — 8 weken vooruit</p>
+</div>
+
+{% if not vergaderingen %}
+<div class="leeg-blok">
+  <p>Geen vergaderingen gevonden.</p>
+</div>
+{% else %}
+
+{% set huidige_datum = "" %}
+{% for v in vergaderingen %}
+  {% if v.datum != huidige_datum %}
+    {% if not loop.first %}</div>{% endif %}
+    <div class="agenda-dag">
+      <div class="agenda-datumbalk">
+        <span class="agenda-datum-groot">
+          {{ v.datum[8:] }}
+          {% set maanden = ['jan','feb','mrt','apr','mei','jun','jul','aug','sep','okt','nov','dec'] %}
+          {{ maanden[v.datum[5:7]|int - 1] }}
+        </span>
+        <span class="agenda-dag-naam">
+          {% if v.datum == today %}vandaag
+          {% elif v.datum == (today[:8] ~ '%02d'|format(today[8:]|int + 1)) %}morgen
+          {% else %}
+            {% set weekdagen = ['ma','di','wo','do','vr','za','zo'] %}
+            {% set d = namespace(wd=0) %}
+            {{ v.datum }}
+          {% endif %}
+        </span>
+      </div>
+      <div class="agenda-items-dag">
+    {% set huidige_datum = v.datum %}
+  {% endif %}
+
+  <a class="agenda-item {% if v.categorie_type == 'Raad' %}agenda-raad{% elif v.categorie_type == 'Commissie' %}agenda-commissie{% else %}agenda-overig{% endif %}"
+     href="{{ v.url }}" target="_blank" rel="noopener">
+    <div class="agenda-tijd">{{ v.tijd[:5] if v.tijd else '—' }}</div>
+    <div class="agenda-midden">
+      <div class="agenda-titel">{{ v.titel }}</div>
+      {% if v.locatie %}
+      <div class="agenda-locatie">
+        <svg width="11" height="11" viewBox="0 0 12 12" fill="none">
+          <path d="M6 1a3.5 3.5 0 0 1 3.5 3.5C9.5 7 6 11 6 11S2.5 7 2.5 4.5A3.5 3.5 0 0 1 6 1z" stroke="currentColor" stroke-width="1.2"/>
+          <circle cx="6" cy="4.5" r="1" fill="currentColor"/>
+        </svg>
+        {{ v.locatie }}
+      </div>
+      {% endif %}
+    </div>
+    <div class="agenda-rechts">
+      <span class="agenda-badge" style="background:{{ v.kleur }}20; color:{{ v.kleur }}; border:1px solid {{ v.kleur }}40">
+        {{ v.categorie }}
+      </span>
+      {% if v.agenda_items %}
+      <span class="agenda-count">{{ v.agenda_items }} punten</span>
+      {% endif %}
+    </div>
+  </a>
+
+{% endfor %}
+</div>
+{% endif %}
+{% endblock %}

@@ -58,6 +58,30 @@
         </svg>
         Toezeggingen
       </a>
+      <a href="/agenda" class="sidebar-link {% if request.url.path == '/agenda' %}actief{% endif %}">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+          <rect x="2" y="3" width="12" height="11" rx="1.5" stroke="currentColor" stroke-width="1.4"/>
+          <path d="M5 2v2M11 2v2M2 7h12" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>
+        </svg>
+        Agenda
+      </a>
+      <a href="/fracties" class="sidebar-link {% if request.url.path == '/fracties' %}actief{% endif %}">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+          <circle cx="6" cy="5" r="2.5" stroke="currentColor" stroke-width="1.4"/>
+          <path d="M2 13c0-2.2 1.8-4 4-4s4 1.8 4 4" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>
+          <path d="M11 7c1.1 0 2 .9 2 2v1" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>
+          <circle cx="12" cy="4.5" r="1.5" stroke="currentColor" stroke-width="1.4"/>
+        </svg>
+        Fracties
+      </a>
+      <a href="/statistieken" class="sidebar-link {% if request.url.path == '/statistieken' %}actief{% endif %}">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+          <rect x="2" y="9" width="3" height="5" rx="1" fill="currentColor" opacity=".5"/>
+          <rect x="6.5" y="5" width="3" height="9" rx="1" fill="currentColor" opacity=".7"/>
+          <rect x="11" y="2" width="3" height="12" rx="1" fill="currentColor"/>
+        </svg>
+        Statistieken
+      </a>
       <a href="/chat" class="sidebar-link {% if request.url.path == '/chat' %}actief{% endif %}">
         <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
           <path d="M2 3a1 1 0 011-1h10a1 1 0 011 1v7a1 1 0 01-1 1H9l-3 3v-3H3a1 1 0 01-1-1V3z" fill="currentColor" opacity=".2" stroke="currentColor" stroke-width="1.2"/>

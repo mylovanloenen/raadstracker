@@ -177,6 +177,80 @@ async def toezeggingen_page(
     })
 
 
+@app.get("/agenda", response_class=HTMLResponse)
+async def agenda_page(request: Request):
+    import requests as req
+    from datetime import timedelta
+    vanaf = date.today().isoformat()
+    tot = (date.today() + timedelta(days=56)).isoformat()
+    try:
+        r = req.get(
+            "https://api.notubiz.nl/organisations/281/events",
+            params={"format": "json", "date_from": vanaf, "date_to": tot},
+            timeout=10,
+        )
+        events_raw = r.json().get("events", {}).get("event", [])
+        if isinstance(events_raw, dict):
+            events_raw = [events_raw]
+        vergaderingen = []
+        for e in events_raw:
+            attrs = e.get("@attributes", {})
+            cat = e.get("category", {})
+            cat_type = cat.get("type", {}).get("label", "")
+            vergaderingen.append({
+                "id": attrs.get("id"),
+                "datum": attrs.get("date"),
+                "tijd": attrs.get("time", ""),
+                "titel": e.get("title", ""),
+                "locatie": e.get("location", ""),
+                "categorie": cat.get("title", ""),
+                "categorie_type": cat_type,
+                "agenda_items": attrs.get("agenda_item_count", 0),
+                "url": e.get("url", "").replace("http://", "https://"),
+                "kleur": cat.get("type", {}).get("color", "#666"),
+            })
+    except Exception as ex:
+        logger.error(f"Agenda ophalen mislukt: {ex}")
+        vergaderingen = []
+    return templates.TemplateResponse("agenda.html", {
+        "request": request,
+        "vergaderingen": vergaderingen,
+        "today": date.today().isoformat(),
+    })
+
+
+@app.get("/statistieken", response_class=HTMLResponse)
+async def statistieken_page(request: Request):
+    stats = db.get_statistieken()
+    return templates.TemplateResponse("statistieken.html", {
+        "request": request,
+        "stats": stats,
+    })
+
+
+@app.get("/fracties", response_class=HTMLResponse)
+async def fracties_page(request: Request, fractie: str = "", page: int = 1):
+    resultaat = db.zoek_items(q=fractie, gemeente_slug="amsterdam", page=page) if fractie else {"items": [], "totaal": 0, "page": 1, "pages": 0}
+    # Haal top fracties op voor de lijst
+    import sqlite3
+    with db.get_connection() as conn:
+        top = conn.execute(
+            """SELECT indiener, COUNT(*) as n FROM items
+               WHERE gemeente_slug = 'amsterdam' AND indiener IS NOT NULL AND indiener != ''
+               AND indiener NOT LIKE '%,%'
+               GROUP BY indiener ORDER BY n DESC LIMIT 20"""
+        ).fetchall()
+    return templates.TemplateResponse("fracties.html", {
+        "request": request,
+        "top_fracties": [(r["indiener"], r["n"]) for r in top],
+        "fractie": fractie,
+        "items": resultaat["items"],
+        "totaal": resultaat["totaal"],
+        "page": resultaat["page"],
+        "pages": resultaat["pages"],
+    })
+
+
 # ── API: briefing (streaming) ─────────────────────────────────────────────────
 
 @app.post("/api/briefing")
@@ -235,7 +309,7 @@ Verwijs naar stukken met [nummer]. Geef aan of een stuk van Amsterdam of de Twee
 # ── API: vraag (streaming) ────────────────────────────────────────────────────
 
 @app.post("/api/vraag")
-async def api_vraag(vraag: str = Form(...)):
+async def api_vraag(vraag: str = Form(...), history: str = Form(default="[]")):
     termen = extraheer_zoektermen(vraag)
     items = db.zoek_voor_briefing(termen, limit=15)
 
@@ -243,30 +317,39 @@ async def api_vraag(vraag: str = Form(...)):
         items = db.get_recent_items(limit=10)
 
     context = items_als_context(items)
-    prompt = f"""Je bent een deskundige politiek assistent met toegang tot het archief van de Amsterdamse gemeenteraad én de Tweede Kamer.
+    systeem = f"""Je bent een deskundige politiek assistent met toegang tot het archief van de Amsterdamse gemeenteraad, Tweede Kamer en Waterschap AGV.
 
-Beantwoord de vraag op basis van de onderstaande raads- en Kameritems. Richtlijnen:
+Beantwoord vragen op basis van de onderstaande raadsitems. Richtlijnen:
 - Schrijf in vloeiend, helder Nederlands
-- Geef aan of een item van Amsterdam of de Tweede Kamer afkomstig is wanneer dat relevant is
 - Noem concrete details zoals indiener, datum en uitslag wanneer relevant
 - Verwijs naar items met [nummer] als je ernaar verwijst
-- Pas de lengte aan op de vraag: eenvoudige vragen krijgen een bondig antwoord, complexe vragen een uitgebreider antwoord
-- Geef structuur aan langere antwoorden met alinea's
+- Pas de lengte aan op de vraag: bondig voor simpele vragen, uitgebreid voor complexe
 - Als iets niet in de beschikbare items staat, zeg dat eerlijk
-
-Vraag: {vraag}
 
 Beschikbare items ({len(items)} stuks):
 {context}"""
+
+    # Bouw gespreksgeschiedenis op
+    try:
+        hist = json.loads(history)
+    except Exception:
+        hist = []
+
+    messages = []
+    for h in hist[-10:]:  # max 10 eerdere berichten meesturen
+        if h.get("role") in ("user", "assistant") and h.get("content"):
+            messages.append({"role": h["role"], "content": h["content"]})
+    messages.append({"role": "user", "content": vraag})
 
     async def stream():
         client = get_claude()
         with client.messages.stream(
             model="claude-sonnet-4-6",
-            max_tokens=1000,
-            messages=[{"role": "user", "content": prompt}],
-        ) as stream:
-            for text in stream.text_stream:
+            max_tokens=1200,
+            system=systeem,
+            messages=messages,
+        ) as s:
+            for text in s.text_stream:
                 escaped = text.replace("\n", "\\n")
                 yield f"data: {escaped}\n\n"
         bronnen = [{"nr": i+1, "titel": it["titel"], "url": it["bron_url"]} for i, it in enumerate(items)]

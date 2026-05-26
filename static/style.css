@@ -797,3 +797,69 @@ textarea:focus, input[type=text]:focus {
   .item-rechts { flex-direction: row; align-items: center; }
   .stats-rij { gap: 8px; }
 }
+
+/* ── Gedeelde pagina-header ──────────────────────────────────────────────── */
+.pagina-header { margin-bottom: 24px; }
+.pagina-header h1 { font-size: 22px; font-weight: 700; color: var(--blauw); margin: 0 0 4px; }
+.pagina-sub { font-size: 13px; color: var(--grijs); margin: 0; }
+
+/* ── Agenda ──────────────────────────────────────────────────────────────── */
+.agenda-dag { margin-bottom: 24px; }
+.agenda-datumbalk {
+  display: flex; align-items: baseline; gap: 8px;
+  padding: 8px 0; border-bottom: 2px solid var(--blauw);
+  margin-bottom: 8px;
+}
+.agenda-datum-groot { font-size: 20px; font-weight: 700; color: var(--blauw); }
+.agenda-dag-naam { font-size: 13px; color: var(--grijs); }
+.agenda-items-dag { display: flex; flex-direction: column; gap: 8px; }
+.agenda-item {
+  display: flex; align-items: center; gap: 12px;
+  background: white; border: 1px solid #e2ddd8; border-radius: 10px;
+  padding: 12px 16px; text-decoration: none; color: inherit;
+  transition: box-shadow .15s, transform .15s;
+}
+.agenda-item:hover { box-shadow: 0 2px 12px rgba(0,0,0,.08); transform: translateY(-1px); }
+.agenda-raad { border-left: 4px solid #cc0000; }
+.agenda-commissie { border-left: 4px solid #158a15; }
+.agenda-overig { border-left: 4px solid #999; }
+.agenda-tijd { font-size: 13px; font-weight: 600; color: var(--grijs); min-width: 40px; }
+.agenda-midden { flex: 1; min-width: 0; }
+.agenda-titel { font-weight: 600; font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.agenda-locatie { font-size: 12px; color: var(--grijs); margin-top: 2px; display: flex; align-items: center; gap: 4px; }
+.agenda-rechts { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; }
+.agenda-badge { font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 20px; white-space: nowrap; }
+.agenda-count { font-size: 11px; color: var(--grijs); }
+
+/* ── Statistieken ────────────────────────────────────────────────────────── */
+.stat-kaarten { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 12px; margin-bottom: 28px; }
+.stat-kaart { background: white; border: 1px solid #e2ddd8; border-radius: 10px; padding: 16px; text-align: center; }
+.stat-getal { font-size: 28px; font-weight: 700; color: var(--blauw); }
+.stat-label { font-size: 12px; color: var(--grijs); margin-top: 4px; }
+.stat-sectie { background: white; border: 1px solid #e2ddd8; border-radius: 10px; padding: 20px; margin-bottom: 20px; }
+.stat-sectie h2 { font-size: 14px; font-weight: 700; color: var(--grijs); text-transform: uppercase; letter-spacing: .5px; margin: 0 0 16px; }
+.stat-twee-kolommen { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+@media (max-width: 700px) { .stat-twee-kolommen { grid-template-columns: 1fr; } }
+.uitslag-balk-wrapper { padding: 8px 0; }
+.uitslag-balk { display: flex; height: 36px; border-radius: 8px; overflow: hidden; gap: 3px; }
+.uitslag-aan { background: #2e7d32; color: white; font-size: 12px; font-weight: 600; display: flex; align-items: center; padding: 0 10px; border-radius: 8px; white-space: nowrap; overflow: hidden; }
+.uitslag-ver { background: #c62828; color: white; font-size: 12px; font-weight: 600; display: flex; align-items: center; padding: 0 10px; border-radius: 8px; }
+.fractie-balk-lijst { display: flex; flex-direction: column; gap: 8px; }
+.fractie-balk-rij { display: flex; align-items: center; gap: 10px; text-decoration: none; color: inherit; }
+.fractie-balk-rij:hover .fractie-naam { color: var(--blauw); }
+.fractie-naam { font-size: 13px; min-width: 140px; }
+.fractie-balk-outer { flex: 1; background: #f0eeeb; border-radius: 4px; height: 10px; overflow: hidden; }
+.fractie-balk-inner { background: var(--blauw); height: 100%; border-radius: 4px; transition: width .3s; }
+.fractie-getal { font-size: 12px; color: var(--grijs); min-width: 36px; text-align: right; }
+
+/* ── Fracties pagina ─────────────────────────────────────────────────────── */
+.fractie-knoppen { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 20px; }
+.fractie-knop {
+  padding: 6px 14px; border-radius: 20px; font-size: 13px; font-weight: 600;
+  background: #f0eeeb; color: #1a1a2e; text-decoration: none;
+  display: flex; align-items: center; gap: 6px; transition: background .15s;
+}
+.fractie-knop:hover, .fractie-knop.actief { background: var(--blauw); color: white; }
+.fractie-knop-count { font-size: 11px; opacity: .7; }
+.resultaat-info { font-size: 13px; color: var(--grijs); margin-bottom: 12px; }
+.leeg-blok, .leeg-tekst { color: var(--grijs); font-size: 14px; padding: 24px 0; }

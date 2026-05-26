@@ -1,0 +1,69 @@
+{% extends "base.html" %}
+{% block title %}Fracties{% endblock %}
+
+{% block content %}
+<div class="pagina-header">
+  <h1>Fracties</h1>
+  <p class="pagina-sub">Zoek alle stukken per politieke partij</p>
+</div>
+
+<!-- Fractie-knoppen -->
+<div class="fractie-knoppen">
+  {% for naam, n in top_fracties %}
+  <a href="/fracties?fractie={{ naam|urlencode }}"
+     class="fractie-knop {% if fractie == naam %}actief{% endif %}">
+    {{ naam }} <span class="fractie-knop-count">{{ n }}</span>
+  </a>
+  {% endfor %}
+</div>
+
+{% if fractie %}
+<div class="zoekbalk" style="margin: 16px 0;">
+  <form method="get" action="/fracties" style="display:flex;gap:8px;align-items:center">
+    <input type="text" name="fractie" value="{{ fractie }}" class="zoek-input" placeholder="Fractienaam…" style="flex:1">
+    <button type="submit" class="btn btn-primair">Zoeken</button>
+    <a href="/fracties" class="btn btn-secundair">Wis</a>
+  </form>
+</div>
+
+{% if items %}
+<p class="resultaat-info">{{ totaal }} stukken van <strong>{{ fractie }}</strong></p>
+<div class="items-lijst">
+  {% for item in items %}
+  <a class="item-kaart" href="/item/{{ item.id }}">
+    <div>
+      <div class="item-titel">{{ item.titel or '(geen titel)' }}</div>
+      <div class="item-meta">
+        <span>{{ item.indiener or '—' }}</span>
+        <span>{{ item.datum_ingediend or '?' }}</span>
+      </div>
+    </div>
+    <div class="item-rechts">
+      <span class="badge badge-{{ item.type.replace('_', '-') }}">
+        {{ 'Motie' if item.type == 'motie' else 'S. vraag' if item.type == 'schriftelijke_vraag' else 'Interpellatie' if item.type == 'interpellatie' else 'Ingekomen' }}
+      </span>
+      {% if item.uitslag %}
+      <span class="badge badge-{{ 'aangenomen' if 'aangenomen' in item.uitslag.lower() else 'verworpen' if 'verworpen' in item.uitslag.lower() else '' }}">
+        {{ item.uitslag[:20] }}
+      </span>
+      {% endif %}
+    </div>
+  </a>
+  {% endfor %}
+</div>
+
+{% if pages > 1 %}
+<div class="paginering">
+  {% if page > 1 %}<a href="/fracties?fractie={{ fractie|urlencode }}&page={{ page - 1 }}">← Vorige</a>{% endif %}
+  {% for p in range(1, pages + 1) %}
+  <a href="/fracties?fractie={{ fractie|urlencode }}&page={{ p }}" {% if p == page %}class="actief"{% endif %}>{{ p }}</a>
+  {% endfor %}
+  {% if page < pages %}<a href="/fracties?fractie={{ fractie|urlencode }}&page={{ page + 1 }}">Volgende →</a>{% endif %}
+</div>
+{% endif %}
+
+{% else %}
+<p class="leeg-tekst">Geen stukken gevonden voor "{{ fractie }}".</p>
+{% endif %}
+{% endif %}
+{% endblock %}

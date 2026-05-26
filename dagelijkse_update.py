@@ -94,6 +94,74 @@ def update_toezeggingen() -> int:
         return 0
 
 
+def stuur_alert(naam: str, email: str, matches: list) -> None:
+    """Stuur een direct alert-mailtje als er nieuwe relevante stukken zijn."""
+    try:
+        import resend
+        import os
+        resend.api_key = os.environ.get("RESEND_API_KEY", "")
+        from_email = os.environ.get("FROM_EMAIL", "briefing@d66-connect.com")
+
+        items_html = "".join(
+            f'<li><a href="{it.get("bron_url","#")}">{it.get("titel","")}</a> '
+            f'<span style="color:#999">({it.get("indiener") or "—"}, {it.get("datum_ingediend") or "?"})</span></li>'
+            for it in matches[:8]
+        )
+        html = f"""<html><body style="font-family:sans-serif;max-width:600px;margin:0 auto">
+<div style="background:#003082;color:white;padding:20px 24px;border-radius:8px 8px 0 0">
+  <h2 style="margin:0;font-size:18px">🔔 Nieuwe relevante stukken</h2>
+  <p style="margin:4px 0 0;opacity:.8;font-size:13px">{naam}</p>
+</div>
+<div style="background:white;padding:20px 24px;border:1px solid #e2ddd8;border-top:none;border-radius:0 0 8px 8px">
+  <p>Er zijn {len(matches)} nieuwe stukken die aansluiten bij jouw onderwerpen:</p>
+  <ul style="line-height:1.8">{items_html}</ul>
+  <p><a href="https://raadstracker.fly.dev/nieuws" style="color:#003082">Bekijk alle nieuws →</a></p>
+</div></body></html>"""
+
+        resend.Emails.send({
+            "from": f"Raadstracker <{from_email}>",
+            "to": [email],
+            "subject": f"🔔 {len(matches)} nieuwe stukken over jouw onderwerpen",
+            "html": html,
+        })
+        logger.info(f"Alert verstuurd naar {email}: {len(matches)} matches")
+    except Exception as e:
+        logger.error(f"Alert versturen mislukt: {e}")
+
+
+def controle_alerts(nieuw_items: list) -> None:
+    """Check nieuwe items tegen gebruikersonderwerpen en stuur alerts."""
+    if not nieuw_items:
+        return
+    try:
+        import yaml
+        from pathlib import Path
+        from dotenv import load_dotenv
+        load_dotenv(Path(__file__).parent / ".env", override=True)
+
+        with open(Path(__file__).parent / "gebruikers.yaml") as f:
+            config = yaml.safe_load(f)
+
+        for g in config.get("gebruikers", []):
+            if not g.get("actief", True):
+                continue
+            onderwerpen = g.get("onderwerpen", [])
+            if not onderwerpen:
+                continue
+
+            termen = [o.lower() for o in onderwerpen]
+            matches = []
+            for item in nieuw_items:
+                tekst = (item.get("titel") or "").lower()
+                if any(t in tekst or any(w in tekst for w in t.split()) for t in termen):
+                    matches.append(item)
+
+            if matches:
+                stuur_alert(g["naam"], g["email"], matches)
+    except Exception as e:
+        logger.error(f"Alert controle mislukt: {e}")
+
+
 def run(dagen: int = 3) -> dict:
     db.init_db()
     logger.info(f"Dagelijkse update gestart — afgelopen {dagen} dagen")
@@ -115,6 +183,15 @@ def run(dagen: int = 3) -> dict:
         logger.info("FTS herbouwd")
     except Exception as e:
         logger.warning(f"FTS rebuild: {e}")
+
+    # Alert: check nieuwe Amsterdam-items tegen gebruikersonderwerpen
+    try:
+        vandaag = db.get_nieuw_vandaag(uren=6)
+        nieuw_lokaal = vandaag.get("amsterdam", []) + vandaag.get("agv", [])
+        if nieuw_lokaal:
+            controle_alerts(nieuw_lokaal)
+    except Exception as e:
+        logger.error(f"Alert check fout: {e}")
 
     resultaat = {
         "amsterdam": ams, "tweedekamer": tk, "agv": agv, "toezeggingen": tz,

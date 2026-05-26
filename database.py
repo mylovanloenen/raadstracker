@@ -598,3 +598,55 @@ def get_recent_media(uren: int = 24) -> list[dict]:
             (f"-{uren} hours",),
         ).fetchall()
     return [dict(r) for r in rows]
+
+# ── Statistieken ─────────────────────────────────────────────────────────────
+
+def get_statistieken() -> dict:
+    """Statistieken voor het dashboard."""
+    with get_connection() as conn:
+        # Items per maand (laatste 24 maanden), Amsterdam
+        per_maand = conn.execute(
+            """SELECT strftime('%Y-%m', datum_ingediend) as maand, COUNT(*) as n
+               FROM items WHERE gemeente_slug = 'amsterdam'
+               AND datum_ingediend IS NOT NULL
+               AND datum_ingediend >= date('now', '-24 months')
+               GROUP BY maand ORDER BY maand ASC"""
+        ).fetchall()
+
+        # Items per type, Amsterdam
+        per_type = conn.execute(
+            """SELECT type, COUNT(*) as n FROM items
+               WHERE gemeente_slug = 'amsterdam'
+               GROUP BY type ORDER BY n DESC"""
+        ).fetchall()
+
+        # Top fracties (enkelvoudig ingediend), Amsterdam
+        top_fracties = conn.execute(
+            """SELECT indiener, COUNT(*) as n FROM items
+               WHERE gemeente_slug = 'amsterdam'
+               AND indiener IS NOT NULL AND indiener != ''
+               AND indiener NOT LIKE '%,%'
+               GROUP BY indiener ORDER BY n DESC LIMIT 12"""
+        ).fetchall()
+
+        # Aangenomen vs verworpen, Amsterdam moties
+        uitslag_stats = conn.execute(
+            """SELECT
+               SUM(CASE WHEN lower(uitslag) LIKE '%aangenomen%' THEN 1 ELSE 0 END) as aangenomen,
+               SUM(CASE WHEN lower(uitslag) LIKE '%verworpen%' THEN 1 ELSE 0 END) as verworpen,
+               SUM(CASE WHEN uitslag IS NOT NULL AND uitslag != '' THEN 1 ELSE 0 END) as totaal_met_uitslag
+               FROM items WHERE gemeente_slug = 'amsterdam' AND type = 'motie'"""
+        ).fetchone()
+
+        # Totalen per bron
+        totalen = conn.execute(
+            """SELECT gemeente_slug, COUNT(*) as n FROM items GROUP BY gemeente_slug ORDER BY n DESC"""
+        ).fetchall()
+
+    return {
+        "per_maand": [(r["maand"], r["n"]) for r in per_maand],
+        "per_type": [(r["type"], r["n"]) for r in per_type],
+        "top_fracties": [(r["indiener"], r["n"]) for r in top_fracties],
+        "uitslag": dict(uitslag_stats) if uitslag_stats else {},
+        "totalen": [(r["gemeente_slug"], r["n"]) for r in totalen],
+    }

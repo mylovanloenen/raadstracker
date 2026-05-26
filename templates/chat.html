@@ -117,6 +117,7 @@
 <script>
 // ── State ──────────────────────────────────────────────────────────────────
 let bezig = false;
+let gespreksHistory = [];  // [{role: 'user'|'assistant', content: '...'}]
 
 // ── Markdown renderer ──────────────────────────────────────────────────────
 function renderMarkdown(text) {
@@ -212,6 +213,7 @@ function stelVraag(tekst) {
 }
 
 function nieuwGesprek() {
+  gespreksHistory = [];
   location.reload();
 }
 
@@ -234,8 +236,12 @@ document.getElementById('chat-form').addEventListener('submit', async (e) => {
   const itemsvak = document.getElementById('ai-items-actief');
   const typewriter = maakTypewriter(tekstvak);
 
+  // Sla gebruikersvraag op in history
+  gespreksHistory.push({ role: 'user', content: vraag });
+
   const form = new FormData();
   form.append('vraag', vraag);
+  form.append('history', JSON.stringify(gespreksHistory.slice(0, -1))); // stuur vorige berichten mee
 
   const resp = await fetch('/api/vraag', { method: 'POST', body: form });
   const reader = resp.body.getReader();
@@ -262,7 +268,12 @@ document.getElementById('chat-form').addEventListener('submit', async (e) => {
   }
 
   // Stream klaar — typewriter typt rest af, daarna bronnen tonen
+  let volledigAntwoord = '';
   typewriter.setKlaar(() => {
+    // Sla AI-antwoord op in history
+    const aiTekst = document.getElementById('ai-tekst-actief');
+    if (aiTekst) volledigAntwoord = aiTekst.innerText || '';
+    gespreksHistory.push({ role: 'assistant', content: volledigAntwoord });
     itemsvak.id = '';
     if (bronnenData && bronnenData.length > 0) {
       itemsvak.innerHTML = `
