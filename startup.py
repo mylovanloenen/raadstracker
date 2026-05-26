@@ -68,8 +68,19 @@ def main():
         nieuw = importeer_media()
         logger.info(f"✅ Media import klaar: {nieuw} items")
 
+    with db.get_connection() as conn:
+        agv_count = conn.execute(
+            "SELECT COUNT(*) FROM items WHERE gemeente_slug = 'waterschap_agv'"
+        ).fetchone()[0]
+
+    if agv_count == 0:
+        logger.info("Geen AGV items — waterschap import starten...")
+        from agv_import import importeer as importeer_agv
+        nieuw = importeer_agv()
+        logger.info(f"✅ AGV import klaar: {nieuw} items")
+
     if count > 0 and tk_count > 0:
-        logger.info(f"Database: {count} items (incl. {tk_count} TK), {tz_count} toezeggingen, {media_count} media")
+        logger.info(f"Database: {count} items (incl. {tk_count} TK, {agv_count} AGV), {tz_count} toezeggingen, {media_count} media")
 
 
 if __name__ == "__main__":

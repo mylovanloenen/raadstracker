@@ -56,6 +56,7 @@ TYPE_LABEL = {
 BRON_LABEL = {
     'amsterdam': 'Amsterdam',
     'tweedekamer': 'Tweede Kamer',
+    'waterschap_agv': 'Waterschap AGV',
 }
 
 
@@ -126,7 +127,7 @@ async def nieuws_page(request: Request):
     media = db.get_recent_media(uren=48)
     stats = db.get_stats()
     heeft_nieuws = any([
-        vandaag["amsterdam"], vandaag["tweedekamer"],
+        vandaag["amsterdam"], vandaag["tweedekamer"], vandaag["agv"],
         vandaag["toezeggingen_nieuw"], vandaag["toezeggingen_over"],
         media,
     ])
@@ -292,6 +293,11 @@ async def api_nieuws_briefing():
     if vandaag["tweedekamer"]:
         regels.append(f"\n**Nieuw Tweede Kamer ({len(vandaag['tweedekamer'])} items):**")
         for it in vandaag["tweedekamer"][:10]:
+            regels.append(f"- [{TYPE_LABEL.get(it['type'], it['type'])}] {it['titel']} (indiener: {it['indiener'] or '?'}, {it['datum_ingediend'] or '?'})")
+
+    if vandaag.get("agv"):
+        regels.append(f"\n**Nieuw Waterschap AGV ({len(vandaag['agv'])} items):**")
+        for it in vandaag["agv"][:5]:
             regels.append(f"- [{TYPE_LABEL.get(it['type'], it['type'])}] {it['titel']} (indiener: {it['indiener'] or '?'}, {it['datum_ingediend'] or '?'})")
 
     if vandaag["toezeggingen_over"]:

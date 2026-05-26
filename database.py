@@ -383,6 +383,11 @@ def get_nieuw_vandaag(uren: int = 24) -> dict:
                AND aangemaakt >= datetime('now', ?) ORDER BY aangemaakt DESC LIMIT 20""",
             (f"-{uren} hours",),
         ).fetchall()
+        items_agv = conn.execute(
+            """SELECT * FROM items WHERE gemeente_slug = 'waterschap_agv'
+               AND aangemaakt >= datetime('now', ?) ORDER BY aangemaakt DESC LIMIT 10""",
+            (f"-{uren} hours",),
+        ).fetchall()
         tz_nieuw = conn.execute(
             """SELECT * FROM toezeggingen WHERE status = 'Openstaand'
                AND aangemaakt >= datetime('now', ?) ORDER BY aangemaakt DESC LIMIT 10""",
@@ -396,6 +401,7 @@ def get_nieuw_vandaag(uren: int = 24) -> dict:
     return {
         "amsterdam": [dict(r) for r in items_ams],
         "tweedekamer": [dict(r) for r in items_tk],
+        "agv": [dict(r) for r in items_agv],
         "toezeggingen_nieuw": [dict(r) for r in tz_nieuw],
         "toezeggingen_over": [dict(r) for r in tz_over],
     }

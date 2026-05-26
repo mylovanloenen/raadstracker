@@ -86,6 +86,34 @@
 </section>
 {% endif %}
 
+{% if vandaag.agv %}
+<section class="nieuws-sectie">
+  <div class="nieuws-sectie-header">
+    <h2>Waterschap AGV — {{ vandaag.agv|length }} nieuw</h2>
+    <a href="/?bron=waterschap_agv" class="nieuws-meer">Heel archief →</a>
+  </div>
+  <div class="items-lijst">
+    {% for item in vandaag.agv %}
+    <a class="item-kaart" href="/item/{{ item.id }}">
+      <div>
+        <div class="item-titel">{{ item.titel or '(geen titel)' }}</div>
+        <div class="item-meta">
+          <span>{{ item.indiener or '—' }}</span>
+          <span>{{ item.datum_ingediend or '?' }}</span>
+        </div>
+      </div>
+      <div class="item-rechts">
+        <span class="badge badge-agv">AGV</span>
+        <span class="badge badge-{{ item.type.replace('_', '-') }}">
+          {{ 'Motie' if item.type == 'motie' else 'S. vraag' }}
+        </span>
+      </div>
+    </a>
+    {% endfor %}
+  </div>
+</section>
+{% endif %}
+
 {% if vandaag.toezeggingen_over %}
 <section class="nieuws-sectie">
   <div class="nieuws-sectie-header">

@@ -16,6 +16,7 @@
   <a href="/?q={{ q }}&type={{ type }}" class="bron-tab {% if not bron %}actief{% endif %}">Alle bronnen</a>
   <a href="/?q={{ q }}&type={{ type }}&bron=amsterdam" class="bron-tab {% if bron == 'amsterdam' %}actief{% endif %}">Amsterdam</a>
   <a href="/?q={{ q }}&type={{ type }}&bron=tweedekamer" class="bron-tab {% if bron == 'tweedekamer' %}actief{% endif %}">Tweede Kamer</a>
+  <a href="/?q={{ q }}&type={{ type }}&bron=waterschap_agv" class="bron-tab {% if bron == 'waterschap_agv' %}actief{% endif %}">Waterschap AGV</a>
   <div class="bron-tab-groep">
     <span class="bron-tab-label">SDC:</span>
     {% for slug, naam in [('sdc_centrum','Centrum'),('sdc_noord','Noord'),('sdc_west','West'),('sdc_zuid','Zuid'),('sdc_oost','Oost'),('sdc_zuidoost','Zuidoost'),('sdc_nieuwwest','Nieuw-West')] %}
@@ -61,6 +62,10 @@
     <div class="item-rechts">
       {% if item.gemeente_slug == 'tweedekamer' %}
       <span class="badge badge-tk">TK</span>
+      {% elif item.gemeente_slug == 'waterschap_agv' %}
+      <span class="badge badge-agv">AGV</span>
+      {% elif item.gemeente_slug.startswith('sdc_') %}
+      <span class="badge" style="background:#f3e5f5;color:#6a1b9a">SDC</span>
       {% endif %}
       <span class="badge badge-{{ item.type.replace('_', '-') }}">
         {{ 'Motie' if item.type == 'motie' else 'S. vraag' if item.type == 'schriftelijke_vraag' else 'Interpellatie' if item.type == 'interpellatie' else 'Ingekomen' }}

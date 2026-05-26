@@ -335,6 +335,7 @@ body.app-pagina {
 .badge-aangenomen       { background: #edf7f2; color: var(--groen); }
 .badge-verworpen        { background: #fdecea; color: var(--rood); }
 .badge-tk               { background: #fff3e0; color: #b45309; font-weight: 700; }
+.badge-agv              { background: #e8f5e9; color: #2e7d32; font-weight: 700; }
 
 .termijn-nadert   { color: var(--oranje); font-weight: 600; }
 .termijn-verstreken { color: var(--rood); font-weight: 600; }

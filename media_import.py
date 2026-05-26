@@ -22,6 +22,11 @@ QUERIES = [
     ("amsterdam veiligheid politie", "veiligheid"),
     ("amsterdam financiën begroting", "financiën"),
     ("amsterdam zorg welzijn", "zorg"),
+    ("provincie noord-holland politiek", "provincie"),
+    ("waterschap amstel gooi vecht", "waterschap"),
+    ("amsterdam volkshuisvesting woningbouw", "wonen"),
+    ("amsterdam stikstof natuur milieu", "milieu"),
+    ("amsterdam metropoolregio MRA", "regio"),
 ]
 
 RSS_URL = "https://news.google.com/rss/search?q={query}&hl=nl&gl=NL&ceid=NL:nl"

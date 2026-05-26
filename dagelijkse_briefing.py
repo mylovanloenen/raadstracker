@@ -51,6 +51,7 @@ MAIL_TEMPLATE = """<!DOCTYPE html>
             font-size: 11px; font-weight: 600; margin-right: 4px; }}
   .badge-ams {{ background: #e8edf6; color: #003082; }}
   .badge-tk {{ background: #fff3e0; color: #b45309; }}
+  .badge-agv {{ background: #e8f5e9; color: #2e7d32; }}
   .badge-media {{ background: #f0eeeb; color: #6b6963; }}
   .badge-tz {{ background: #fdecea; color: #c0392b; }}
   .footer {{ padding: 20px 32px; font-size: 12px; color: #9b9790;
@@ -71,6 +72,7 @@ MAIL_TEMPLATE = """<!DOCTYPE html>
 
 {nieuw_amsterdam}
 {nieuw_tk}
+{nieuw_agv}
 {media_sectie}
 {toezeggingen_sectie}
 
@@ -97,6 +99,11 @@ def genereer_ai_samenvatting(vandaag: dict, media: list) -> str:
         regels.append(f"\nNieuwe TK-items ({len(vandaag['tweedekamer'])}):")
         for it in vandaag["tweedekamer"][:6]:
             regels.append(f"- {it['titel']} (indiener: {it['indiener'] or '?'})")
+
+    if vandaag.get("agv"):
+        regels.append(f"\nNieuwe Waterschap AGV-items ({len(vandaag['agv'])}):")
+        for it in vandaag["agv"][:4]:
+            regels.append(f"- [{it['type']}] {it['titel']} (indiener: {it['indiener'] or '?'})")
 
     if vandaag["toezeggingen_over"]:
         regels.append(f"\nToezeggingen met verstreken deadline ({len(vandaag['toezeggingen_over'])}):")
@@ -193,7 +200,7 @@ def stuur_briefing(naam: str, email: str) -> bool:
     media = db.get_recent_media(uren=24)
 
     heeft_inhoud = any([
-        vandaag["amsterdam"], vandaag["tweedekamer"],
+        vandaag["amsterdam"], vandaag["tweedekamer"], vandaag.get("agv"),
         vandaag["toezeggingen_over"], media,
     ])
 
@@ -214,12 +221,18 @@ def stuur_briefing(naam: str, email: str) -> bool:
         tk_html = f"<h2>Nieuw Tweede Kamer ({len(vandaag['tweedekamer'])})</h2>"
         tk_html += bouw_items_html(vandaag["tweedekamer"], "badge-tk", "TK")
 
+    agv_html = ""
+    if vandaag.get("agv"):
+        agv_html = f"<h2>Nieuw Waterschap AGV ({len(vandaag['agv'])})</h2>"
+        agv_html += bouw_items_html(vandaag["agv"], "badge-agv", "AGV")
+
     html = MAIL_TEMPLATE.format(
         naam=naam,
         datum=date.today().strftime("%-d %B %Y"),
         ai_samenvatting=ai_html,
         nieuw_amsterdam=ams_html,
         nieuw_tk=tk_html,
+        nieuw_agv=agv_html,
         media_sectie=bouw_media_html(media),
         toezeggingen_sectie=bouw_toezeggingen_html(vandaag["toezeggingen_over"]),
     )

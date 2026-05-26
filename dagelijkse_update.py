@@ -70,6 +70,18 @@ def update_rijksoverheid() -> int:
         return 0
 
 
+def update_agv() -> int:
+    """Haalt nieuwe AGV (Waterschap Amstel, Gooi en Vecht) items op."""
+    from agv_import import importeer
+    try:
+        n = importeer()
+        logger.info(f"AGV: {n} nieuw/bijgewerkt")
+        return n
+    except Exception as e:
+        logger.error(f"AGV import fout: {e}")
+        return 0
+
+
 def update_toezeggingen() -> int:
     """Ververst de status van openstaande toezeggingen."""
     from toezeggingen_import import importeer as importeer_tz
@@ -90,6 +102,8 @@ def run(dagen: int = 3) -> dict:
     time.sleep(1)
     tk = update_tweedekamer(dagen)
     time.sleep(1)
+    agv = update_agv()
+    time.sleep(1)
     tz = update_toezeggingen()
     time.sleep(1)
     media = update_media()
@@ -103,8 +117,8 @@ def run(dagen: int = 3) -> dict:
         logger.warning(f"FTS rebuild: {e}")
 
     resultaat = {
-        "amsterdam": ams, "tweedekamer": tk, "toezeggingen": tz,
-        "media": media, "rijksoverheid": rgo, "totaal": ams + tk + media + rgo,
+        "amsterdam": ams, "tweedekamer": tk, "agv": agv, "toezeggingen": tz,
+        "media": media, "rijksoverheid": rgo, "totaal": ams + tk + agv + media + rgo,
     }
     logger.info(f"Update klaar: {resultaat}")
     return resultaat
