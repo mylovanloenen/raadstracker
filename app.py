@@ -121,15 +121,19 @@ async def briefing_page(request: Request):
 
 @app.get("/nieuws", response_class=HTMLResponse)
 async def nieuws_page(request: Request):
+    db.init_media_db()
     vandaag = db.get_nieuw_vandaag(uren=24)
+    media = db.get_recent_media(uren=48)
     stats = db.get_stats()
     heeft_nieuws = any([
         vandaag["amsterdam"], vandaag["tweedekamer"],
         vandaag["toezeggingen_nieuw"], vandaag["toezeggingen_over"],
+        media,
     ])
     return templates.TemplateResponse("nieuws.html", {
         "request": request,
         "vandaag": vandaag,
+        "media": media,
         "heeft_nieuws": heeft_nieuws,
         "today": date.today().isoformat(),
         "stats": stats,

@@ -14,12 +14,14 @@
 <!-- Bron-tabs -->
 <div class="bron-tabs">
   <a href="/?q={{ q }}&type={{ type }}" class="bron-tab {% if not bron %}actief{% endif %}">Alle bronnen</a>
-  <a href="/?q={{ q }}&type={{ type }}&bron=amsterdam" class="bron-tab {% if bron == 'amsterdam' %}actief{% endif %}">
-    Amsterdam
-  </a>
-  <a href="/?q={{ q }}&type={{ type }}&bron=tweedekamer" class="bron-tab {% if bron == 'tweedekamer' %}actief{% endif %}">
-    Tweede Kamer
-  </a>
+  <a href="/?q={{ q }}&type={{ type }}&bron=amsterdam" class="bron-tab {% if bron == 'amsterdam' %}actief{% endif %}">Amsterdam</a>
+  <a href="/?q={{ q }}&type={{ type }}&bron=tweedekamer" class="bron-tab {% if bron == 'tweedekamer' %}actief{% endif %}">Tweede Kamer</a>
+  <div class="bron-tab-groep">
+    <span class="bron-tab-label">SDC:</span>
+    {% for slug, naam in [('sdc_centrum','Centrum'),('sdc_noord','Noord'),('sdc_west','West'),('sdc_zuid','Zuid'),('sdc_oost','Oost'),('sdc_zuidoost','Zuidoost'),('sdc_nieuwwest','Nieuw-West')] %}
+    <a href="/?q={{ q }}&type={{ type }}&bron={{ slug }}" class="bron-tab bron-tab-klein {% if bron == slug %}actief{% endif %}">{{ naam }}</a>
+    {% endfor %}
+  </div>
 </div>
 
 <form class="zoekbalk" method="get" action="/">

@@ -190,6 +190,17 @@ body.app-pagina {
 .bron-tab:hover { color: var(--tekst); }
 .bron-tab.actief { color: var(--blauw); border-bottom-color: var(--blauw); font-weight: 600; }
 
+.bron-tab-groep {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  margin-left: 8px;
+  padding-left: 8px;
+  border-left: 1px solid var(--border);
+}
+.bron-tab-label { font-size: 11px; color: var(--tekst-3); margin-right: 2px; }
+.bron-tab-klein { padding: 7px 9px; font-size: 12px; }
+
 /* ── Zoekbalk ────────────────────────────────────────────────────────────── */
 .zoekbalk {
   display: flex;
@@ -598,6 +609,44 @@ textarea:focus, input[type=text]:focus {
   font-weight: 500;
 }
 .nieuws-meer:hover { text-decoration: underline; }
+
+/* ── Media kaarten ───────────────────────────────────────────────────────── */
+.media-lijst {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 8px;
+}
+
+.media-kaart {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 14px;
+  background: var(--wit);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  text-decoration: none;
+  color: var(--tekst);
+  transition: border-color .15s, background .15s;
+}
+.media-kaart:hover { background: var(--bg-2); border-color: var(--border-2); }
+
+.media-body { flex: 1; min-width: 0; }
+.media-titel {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--tekst);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin-bottom: 4px;
+}
+.media-meta { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.media-bron { font-size: 12px; font-weight: 600; color: var(--blauw); }
+.media-datum { font-size: 12px; color: var(--tekst-3); }
+.badge-tag { background: var(--bg-2); color: var(--tekst-2); font-size: 10px; padding: 2px 6px; border-radius: 20px; }
+.media-ext { font-size: 14px; color: var(--tekst-3); flex-shrink: 0; }
 
 /* ── Toezeggingen ────────────────────────────────────────────────────────── */
 .resultaat-info {

@@ -46,6 +46,30 @@ def update_tweedekamer(dagen: int = 3) -> int:
         return 0
 
 
+def update_media() -> int:
+    """Haalt nieuw nieuws op via Google News RSS."""
+    from media_import import importeer
+    try:
+        n = importeer()
+        logger.info(f"Media: {n} nieuw")
+        return n
+    except Exception as e:
+        logger.error(f"Media import fout: {e}")
+        return 0
+
+
+def update_rijksoverheid() -> int:
+    """Haalt nieuwe Rijksoverheid-documenten op."""
+    from rijksoverheid_import import importeer
+    try:
+        n = importeer()
+        logger.info(f"Rijksoverheid: {n} nieuw")
+        return n
+    except Exception as e:
+        logger.error(f"Rijksoverheid import fout: {e}")
+        return 0
+
+
 def update_toezeggingen() -> int:
     """Ververst de status van openstaande toezeggingen."""
     from toezeggingen_import import importeer as importeer_tz
@@ -67,6 +91,10 @@ def run(dagen: int = 3) -> dict:
     tk = update_tweedekamer(dagen)
     time.sleep(1)
     tz = update_toezeggingen()
+    time.sleep(1)
+    media = update_media()
+    time.sleep(1)
+    rgo = update_rijksoverheid()
 
     try:
         db.rebuild_fts()
@@ -74,7 +102,10 @@ def run(dagen: int = 3) -> dict:
     except Exception as e:
         logger.warning(f"FTS rebuild: {e}")
 
-    resultaat = {"amsterdam": ams, "tweedekamer": tk, "toezeggingen": tz, "totaal": ams + tk}
+    resultaat = {
+        "amsterdam": ams, "tweedekamer": tk, "toezeggingen": tz,
+        "media": media, "rijksoverheid": rgo, "totaal": ams + tk + media + rgo,
+    }
     logger.info(f"Update klaar: {resultaat}")
     return resultaat
 

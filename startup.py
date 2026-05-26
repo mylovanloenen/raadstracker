@@ -56,8 +56,20 @@ def main():
         nieuw = importeer_tz()
         logger.info(f"✅ Toezeggingen import klaar: {nieuw} items")
 
+    with db.get_connection() as conn:
+        try:
+            media_count = conn.execute("SELECT COUNT(*) FROM media_items").fetchone()[0]
+        except Exception:
+            media_count = 0
+
+    if media_count == 0:
+        logger.info("Geen media items — media import starten...")
+        from media_import import importeer as importeer_media
+        nieuw = importeer_media()
+        logger.info(f"✅ Media import klaar: {nieuw} items")
+
     if count > 0 and tk_count > 0:
-        logger.info(f"Database: {count} items (incl. {tk_count} TK), {tz_count} toezeggingen")
+        logger.info(f"Database: {count} items (incl. {tk_count} TK), {tz_count} toezeggingen, {media_count} media")
 
 
 if __name__ == "__main__":

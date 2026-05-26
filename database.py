@@ -525,3 +525,70 @@ def get_stats(gemeente_slug: str = "") -> dict:
         "laatste_update": laatste,
         "per_bron": {r["naam"]: r["n"] for r in per_bron},
     }
+
+
+# ── Media items ───────────────────────────────────────────────────────────────
+
+MEDIA_SCHEMA = """
+CREATE TABLE IF NOT EXISTS media_items (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    extern_id TEXT UNIQUE NOT NULL,
+    bron TEXT NOT NULL,
+    titel TEXT NOT NULL,
+    url TEXT,
+    samenvatting TEXT,
+    datum TEXT,
+    query_tag TEXT,
+    aangemaakt TEXT DEFAULT (datetime('now'))
+);
+CREATE INDEX IF NOT EXISTS idx_media_datum ON media_items(datum);
+CREATE INDEX IF NOT EXISTS idx_media_bron ON media_items(bron);
+"""
+
+
+def init_media_db() -> None:
+    with get_connection() as conn:
+        conn.executescript(MEDIA_SCHEMA)
+
+
+def upsert_media_item(item: dict) -> bool:
+    init_media_db()
+    with get_connection() as conn:
+        existing = conn.execute(
+            "SELECT id FROM media_items WHERE extern_id = ?", (item["extern_id"],)
+        ).fetchone()
+        if existing:
+            return False
+        conn.execute(
+            """INSERT INTO media_items (extern_id, bron, titel, url, samenvatting, datum, query_tag)
+               VALUES (?,?,?,?,?,?,?)""",
+            (item["extern_id"], item["bron"], item["titel"], item.get("url"),
+             item.get("samenvatting"), item.get("datum"), item.get("query_tag")),
+        )
+        return True
+
+
+def get_media_items(q: str = "", bron: str = "", limit: int = 30, dagen: int = 7) -> list[dict]:
+    init_media_db()
+    with get_connection() as conn:
+        rows = conn.execute(
+            """SELECT * FROM media_items
+               WHERE (? = '' OR bron = ?)
+               AND (? = '' OR titel LIKE ? OR samenvatting LIKE ?)
+               AND datum >= date('now', ?)
+               ORDER BY datum DESC LIMIT ?""",
+            (bron, bron, q, f"%{q}%", f"%{q}%", f"-{dagen} days", limit),
+        ).fetchall()
+    return [dict(r) for r in rows]
+
+
+def get_recent_media(uren: int = 24) -> list[dict]:
+    init_media_db()
+    with get_connection() as conn:
+        rows = conn.execute(
+            """SELECT * FROM media_items
+               WHERE aangemaakt >= datetime('now', ?)
+               ORDER BY datum DESC LIMIT 20""",
+            (f"-{uren} hours",),
+        ).fetchall()
+    return [dict(r) for r in rows]

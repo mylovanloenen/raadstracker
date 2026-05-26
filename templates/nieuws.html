@@ -24,7 +24,7 @@
   </div>
 </div>
 
-{% if niet heeft_nieuws %}
+{% if not heeft_nieuws %}
 <div class="leeg" style="margin-top: 32px;">
   <strong>Nog geen nieuwe items vandaag</strong>
   <p>Kom later terug of bekijk het volledige <a href="/">archief</a>.</p>
@@ -108,6 +108,30 @@
         </div>
       </div>
     </div>
+    {% endfor %}
+  </div>
+</section>
+{% endif %}
+
+{% if media %}
+<section class="nieuws-sectie">
+  <div class="nieuws-sectie-header">
+    <h2>Nieuws — {{ media|length }} artikelen (48 uur)</h2>
+    <a href="/media" class="nieuws-meer">Alle nieuws →</a>
+  </div>
+  <div class="media-lijst">
+    {% for m in media[:12] %}
+    <a class="media-kaart" href="{{ m.url }}" target="_blank" rel="noopener">
+      <div class="media-body">
+        <div class="media-titel">{{ m.titel }}</div>
+        <div class="media-meta">
+          <span class="media-bron">{{ m.bron }}</span>
+          <span class="media-datum">{{ m.datum or '—' }}</span>
+          {% if m.query_tag %}<span class="badge badge-tag">{{ m.query_tag }}</span>{% endif %}
+        </div>
+      </div>
+      <span class="media-ext">↗</span>
+    </a>
     {% endfor %}
   </div>
 </section>
