@@ -70,6 +70,7 @@ MAIL_TEMPLATE = """<!DOCTYPE html>
 {ai_samenvatting}
 </div>
 
+{nieuwe_moties}
 {nieuw_amsterdam}
 {media_sectie}
 
@@ -91,6 +92,14 @@ def genereer_ai_samenvatting(vandaag: dict, media: list) -> str:
         regels.append(f"\nNieuwe stukken gemeenteraad Amsterdam ({len(vandaag['amsterdam'])}):")
         for it in vandaag["amsterdam"][:15]:
             regels.append(f"- [{it['type']}] {it['titel']} (indiener: {it['indiener'] or '?'})")
+
+    # Voeg ook recente moties toe aan AI-context (ook als ze niet vandaag zijn ingevoerd)
+    moties_context = db.get_recente_moties(gemeente_slug="amsterdam", dagen=14, limit=8)
+    if moties_context:
+        regels.append(f"\nRecentelijk ingediende moties ({len(moties_context)}):")
+        for it in moties_context:
+            uitslag = f", uitslag: {it['uitslag']}" if it.get('uitslag') else ""
+            regels.append(f"- {it['titel']} (indiener: {it['indiener'] or '?'}, {it['datum_ingediend'] or '?'}{uitslag})")
 
     if media:
         regels.append(f"\nLokaal nieuws ({len(media)} artikelen):")
@@ -212,8 +221,16 @@ def stuur_briefing(naam: str, email: str, onderwerpen: list = None) -> bool:
     if onderwerpen and vandaag["amsterdam"]:
         vandaag["amsterdam"] = filter_op_onderwerpen(vandaag["amsterdam"], onderwerpen)
 
+    # Nieuwe moties afgelopen 14 dagen
+    nieuwe_moties = db.get_recente_moties(gemeente_slug="amsterdam", dagen=14, limit=10)
+
     logger.info(f"AI briefing genereren voor {naam}...")
     ai_html = genereer_ai_samenvatting(vandaag, media)
+
+    moties_html = ""
+    if nieuwe_moties:
+        moties_html = f"<h2>🗳️ Nieuwe moties (afgelopen 2 weken)</h2>"
+        moties_html += bouw_items_html(nieuwe_moties, "badge-ams", "Motie")
 
     ams_html = f"<h2>Recente stukken gemeenteraad Amsterdam</h2>"
     ams_html += bouw_items_html(recente_items, "badge-ams", "AMS")
@@ -222,6 +239,7 @@ def stuur_briefing(naam: str, email: str, onderwerpen: list = None) -> bool:
         naam=naam,
         datum=date.today().strftime("%-d %B %Y"),
         ai_samenvatting=ai_html,
+        nieuwe_moties=moties_html,
         nieuw_amsterdam=ams_html,
         media_sectie=bouw_media_html(media),
     )

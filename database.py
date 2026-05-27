@@ -417,6 +417,19 @@ def get_recent_items(gemeente_slug: str = "amsterdam", limit: int = 10) -> list[
     return [dict(r) for r in rows]
 
 
+def get_recente_moties(gemeente_slug: str = "amsterdam", dagen: int = 14, limit: int = 10) -> list[dict]:
+    """Geeft de meest recente moties terug van de afgelopen N dagen."""
+    with get_connection() as conn:
+        rows = conn.execute(
+            """SELECT * FROM items
+               WHERE gemeente_slug = ? AND type = 'motie'
+               AND datum_ingediend >= date('now', ?)
+               ORDER BY datum_ingediend DESC, aangemaakt DESC LIMIT ?""",
+            (gemeente_slug, f"-{dagen} days", limit),
+        ).fetchall()
+    return [dict(r) for r in rows]
+
+
 def get_item(item_id: int) -> dict | None:
     with get_connection() as conn:
         row = conn.execute("SELECT * FROM items WHERE id = ?", (item_id,)).fetchone()
