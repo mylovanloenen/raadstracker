@@ -71,7 +71,6 @@ MAIL_TEMPLATE = """<!DOCTYPE html>
 </div>
 
 {nieuw_amsterdam}
-{nieuw_agv}
 {media_sectie}
 
 </div>
@@ -90,12 +89,7 @@ def genereer_ai_samenvatting(vandaag: dict, media: list) -> str:
 
     if vandaag["amsterdam"]:
         regels.append(f"\nNieuwe stukken gemeenteraad Amsterdam ({len(vandaag['amsterdam'])}):")
-        for it in vandaag["amsterdam"][:10]:
-            regels.append(f"- [{it['type']}] {it['titel']} (indiener: {it['indiener'] or '?'})")
-
-    if vandaag.get("agv"):
-        regels.append(f"\nNieuwe stukken Waterschap AGV ({len(vandaag['agv'])}):")
-        for it in vandaag["agv"][:4]:
+        for it in vandaag["amsterdam"][:15]:
             regels.append(f"- [{it['type']}] {it['titel']} (indiener: {it['indiener'] or '?'})")
 
     if media:
@@ -113,7 +107,7 @@ Hier is een overzicht van wat er de afgelopen 24 uur lokaal nieuw is in Amsterda
 {context}
 
 Schrijf een vloeiende ochtend-briefing van maximaal 200 woorden. Gebruik alinea's, geen bullet points.
-Focus uitsluitend op lokale Amsterdamse politiek: wat speelt er in de raad, in de stadsdeelcommissies en bij het waterschap?
+Focus uitsluitend op de Amsterdamse gemeenteraad: welke moties zijn ingediend, welke vragen gesteld, wat zijn de politieke thema's?
 Begin met de meest politiek relevante ontwikkeling. Sluit af met één concreet aandachtspunt voor vandaag.
 Schrijf in vloeiend Nederlands, informeel maar professioneel. Geen nationale politiek."""
 
@@ -206,7 +200,7 @@ def stuur_briefing(naam: str, email: str, onderwerpen: list = None) -> bool:
         vandaag["amsterdam"] = filter_op_onderwerpen(vandaag["amsterdam"], onderwerpen)
 
     heeft_inhoud = any([
-        vandaag["amsterdam"], vandaag.get("agv"), media,
+        vandaag["amsterdam"], media,
     ])
 
     if not heeft_inhoud:
@@ -221,17 +215,11 @@ def stuur_briefing(naam: str, email: str, onderwerpen: list = None) -> bool:
         ams_html = f"<h2>Nieuw in de gemeenteraad ({len(vandaag['amsterdam'])})</h2>"
         ams_html += bouw_items_html(vandaag["amsterdam"], "badge-ams", "AMS")
 
-    agv_html = ""
-    if vandaag.get("agv"):
-        agv_html = f"<h2>Nieuw Waterschap AGV ({len(vandaag['agv'])})</h2>"
-        agv_html += bouw_items_html(vandaag["agv"], "badge-agv", "AGV")
-
     html = MAIL_TEMPLATE.format(
         naam=naam,
         datum=date.today().strftime("%-d %B %Y"),
         ai_samenvatting=ai_html,
         nieuw_amsterdam=ams_html,
-        nieuw_agv=agv_html,
         media_sectie=bouw_media_html(media),
     )
 
