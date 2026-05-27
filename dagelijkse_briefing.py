@@ -193,27 +193,30 @@ def stuur_briefing(naam: str, email: str, onderwerpen: list = None) -> bool:
     db.init_media_db()
 
     vandaag = db.get_nieuw_vandaag(uren=24)
-    media = db.get_recent_media(uren=24)
+    media = db.get_recent_media(uren=48)
 
-    # Sorteer Amsterdam-items op relevantie voor de onderwerpen van deze gebruiker
-    if onderwerpen and vandaag["amsterdam"]:
-        vandaag["amsterdam"] = filter_op_onderwerpen(vandaag["amsterdam"], onderwerpen)
+    # Haal altijd recente raadsstukken op (laatste 7 dagen), ongeacht scrape-moment
+    recente_items = db.get_recent_items(gemeente_slug="amsterdam", limit=15)
 
-    heeft_inhoud = any([
-        vandaag["amsterdam"], media,
-    ])
+    # Sorteer op relevantie voor de onderwerpen van deze gebruiker
+    if onderwerpen and recente_items:
+        recente_items = filter_op_onderwerpen(recente_items, onderwerpen)
+
+    heeft_inhoud = any([recente_items, media])
 
     if not heeft_inhoud:
-        logger.info(f"Geen nieuw nieuws voor {email} — mail overgeslagen")
+        logger.info(f"Geen nieuws voor {email} — mail overgeslagen")
         return False
+
+    # Geef ook vandaag-items mee aan de AI voor de samenvatting
+    if onderwerpen and vandaag["amsterdam"]:
+        vandaag["amsterdam"] = filter_op_onderwerpen(vandaag["amsterdam"], onderwerpen)
 
     logger.info(f"AI briefing genereren voor {naam}...")
     ai_html = genereer_ai_samenvatting(vandaag, media)
 
-    ams_html = ""
-    if vandaag["amsterdam"]:
-        ams_html = f"<h2>Nieuw in de gemeenteraad ({len(vandaag['amsterdam'])})</h2>"
-        ams_html += bouw_items_html(vandaag["amsterdam"], "badge-ams", "AMS")
+    ams_html = f"<h2>Recente stukken gemeenteraad Amsterdam</h2>"
+    ams_html += bouw_items_html(recente_items, "badge-ams", "AMS")
 
     html = MAIL_TEMPLATE.format(
         naam=naam,
