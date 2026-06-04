@@ -27,6 +27,14 @@ QUERIES = [
     ("amsterdam volkshuisvesting woningbouw", "wonen"),
     ("amsterdam stikstof natuur milieu", "milieu"),
     ("amsterdam metropoolregio MRA", "regio"),
+    # Gerichte queries voor Ricardo's onderwerpen
+    ("amsterdam democratisering participatie burgers", "democratisering"),
+    ("amsterdam digitale stad ICT technologie", "digitale-stad"),
+    ("amsterdam opvang daklozen asiel", "opvang"),
+    ("masterplan nieuw-west amsterdam", "nieuw-west"),
+    ("masterplan zuidoost amsterdam", "zuidoost"),
+    ("amsterdam jongerenwerk jongeren", "jongerenwerk"),
+    ("stadsdeel zuidoost amsterdam bestuur", "zuidoost"),
 ]
 
 RSS_URL = "https://news.google.com/rss/search?q={query}&hl=nl&gl=NL&ceid=NL:nl"

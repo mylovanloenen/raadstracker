@@ -253,40 +253,84 @@ async def fracties_page(request: Request, fractie: str = "", page: int = 1):
 
 # ── API: briefing (streaming) ─────────────────────────────────────────────────
 
+# Synoniemen voor dunne onderwerpen — verbreed de zoekactie
+SYNONIEMEN = {
+    "democratisering":  ["democratisering", "participatie", "inspraak", "burgerberaad", "bewonersinitiatieven"],
+    "digitale stad":    ["digitale stad", "digitalisering", "ICT", "technologie", "data", "smart city", "algoritme"],
+    "opvang":           ["opvang", "daklozen", "asiel", "vluchtelingen", "maatschappelijke opvang", "noodopvang"],
+    "jongerenwerk":     ["jongerenwerk", "jongeren", "jeugd", "jongerencentrum", "straatwerk"],
+    "masterplan nieuw-west": ["nieuw-west", "masterplan nieuw-west", "osdorp", "geuzenveld", "slotervaart"],
+    "masterplan zuidoost":   ["zuidoost", "masterplan zuidoost", "bijlmer", "amsterdam-zuidoost", "gaasperdam"],
+    "stadsdeel zuidoost":    ["zuidoost", "stadsdeel zuidoost", "bijlmer", "amsterdam-zuidoost"],
+}
+
+
 @app.post("/api/briefing")
 async def api_briefing(onderwerpen: str = Form(...)):
     termen = [t.strip() for t in onderwerpen.replace(",", "\n").splitlines() if t.strip()]
-    items = db.zoek_voor_briefing(termen)
 
-    if not items:
+    # Verbreed zoektermen met synoniemen
+    zoektermen_breed = []
+    for t in termen:
+        zoektermen_breed.append(t)
+        for k, v in SYNONIEMEN.items():
+            if t.lower() == k or t.lower() in v:
+                zoektermen_breed.extend(v)
+    zoektermen_breed = list(dict.fromkeys(zoektermen_breed))  # uniek
+
+    items = db.zoek_voor_briefing(zoektermen_breed, limit=25)
+
+    # Voeg actueel nieuws toe als aanvulling
+    db.init_media_db()
+    media_items = []
+    try:
+        with db.get_connection() as conn:
+            placeholders = " OR ".join(["titel LIKE ?"] * len(termen))
+            params = [f"%{t}%" for t in zoektermen_breed[:8]]
+            media_rows = conn.execute(
+                f"SELECT * FROM media_items WHERE ({placeholders}) ORDER BY datum DESC LIMIT 8",
+                params,
+            ).fetchall()
+            media_items = [dict(r) for r in media_rows]
+    except Exception:
+        pass
+
+    if not items and not media_items:
         async def geen_items():
             yield "data: Geen relevante items gevonden in het archief voor deze onderwerpen.\n\n"
             yield "data: [KLAAR]\n\n"
         return StreamingResponse(geen_items(), media_type="text/event-stream")
 
     context = items_als_context(items)
+
+    nieuws_context = ""
+    if media_items:
+        nieuws_context = f"\n\nActueel nieuws over deze onderwerpen ({len(media_items)} artikelen):\n"
+        for m in media_items:
+            nieuws_context += f"- [{m['bron']}] {m['titel']} ({m['datum'] or '?'})\n"
+
     prompt = f"""Je bent een ervaren politiek adviseur die een pre-meeting briefing opstelt voor een Amsterdams raadslid.
 
 Onderwerpen: {', '.join(termen)}
 
-Items uit het archief ({len(items)} stuks, van Amsterdam én Tweede Kamer):
+Raads- en Kameritems uit het archief ({len(items)} stuks):
 {context}
-
+{nieuws_context}
 Schrijf een heldere, professionele briefing in vloeiend Nederlands met de volgende opbouw:
 
 **Kernpunten**
-Wat speelt er momenteel op deze onderwerpen, zowel lokaal als nationaal? Benoem de belangrijkste ontwikkelingen concreet.
+Wat speelt er momenteel op deze onderwerpen? Benoem de belangrijkste ontwikkelingen concreet, inclusief actueel nieuws.
 
 **Openstaande items**
 Welke moties of vragen zijn nog niet afgedaan? Noem indiener en datum.
 
-**Nationaal vs. lokaal**
-Zijn er relevante ontwikkelingen in de Tweede Kamer die het Amsterdamse beleid raken?
+**Recente ontwikkelingen**
+Wat is er de afgelopen periode nieuws op dit terrein (uit het nieuws en de raad)?
 
 **Suggestievragen**
 2-3 scherpe, concrete vragen die het raadslid kan stellen.
 
-Verwijs naar stukken met [nummer]. Geef aan of een stuk van Amsterdam of de Tweede Kamer komt. Wees concreet."""
+Verwijs naar archief-items met [nummer]. Wees concreet en geef aan hoe actueel de informatie is."""
 
     async def stream():
         client = get_claude()
