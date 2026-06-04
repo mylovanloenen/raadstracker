@@ -394,8 +394,13 @@ body.chat-pagina {
 /* ── Responsive ──────────────────────────────────────────────────────────── */
 @media (max-width: 768px) {
   .chat-sidebar { display: none; }
-  .bericht { padding-left: 16px; padding-right: 16px; }
-  .bericht-bubbel { max-width: 90%; }
-  .chat-welkom { padding: 32px 16px 0; }
+  .chat-hoofd { border-radius: 0; }
+  .bericht { padding-left: 12px; padding-right: 12px; }
+  .bericht-bubbel { max-width: 92%; font-size: 14px; }
+  .chat-welkom { padding: 24px 16px 0; }
   .chat-welkom h2 { font-size: 20px; }
+  .welkom-suggesties { grid-template-columns: 1fr; }
+  .chat-invoer-wrapper { padding: 10px 12px; padding-bottom: calc(10px + env(safe-area-inset-bottom)); }
+  .chat-berichten { padding-bottom: 16px; }
+  .suggestie-btn { font-size: 13px; padding: 10px 14px; text-align: left; }
 }

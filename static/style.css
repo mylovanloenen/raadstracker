@@ -789,13 +789,90 @@ textarea:focus, input[type=text]:focus {
 .tz-min-naam { flex: 1; padding-right: 16px; }
 .tz-min-n { font-weight: 700; color: var(--blauw); font-size: 13px; }
 
+/* ── Mobiele navigatiebalk (onderaan) ────────────────────────────────────── */
+.mobiel-nav {
+  display: none;
+  position: fixed; bottom: 0; left: 0; right: 0;
+  background: white; border-top: 1px solid var(--border);
+  z-index: 100; padding: 0;
+  padding-bottom: env(safe-area-inset-bottom);
+}
+.mobiel-nav-items {
+  display: flex; justify-content: space-around; align-items: stretch;
+}
+.mobiel-nav-item {
+  flex: 1; display: flex; flex-direction: column; align-items: center;
+  justify-content: center; gap: 3px; padding: 10px 4px 8px;
+  text-decoration: none; color: var(--tekst-3); font-size: 10px; font-weight: 600;
+  transition: color .15s; min-height: 54px; text-align: center;
+}
+.mobiel-nav-item svg { flex-shrink: 0; }
+.mobiel-nav-item.actief { color: var(--blauw); }
+.mobiel-nav-item:active { background: var(--bg-2); }
+
 /* ── Responsive ──────────────────────────────────────────────────────────── */
 @media (max-width: 700px) {
+  /* Sidebar verbergen, mobiele nav tonen */
   .sidebar { display: none; }
-  .app-inhoud { padding: 20px 16px 40px; }
-  .item-kaart { grid-template-columns: 1fr; }
-  .item-rechts { flex-direction: row; align-items: center; }
+  .mobiel-nav { display: block; }
+
+  /* Ruimte voor de vaste balk onderaan */
+  .app-inhoud { padding: 20px 16px 80px; }
+
+  /* Items */
+  .item-kaart { grid-template-columns: 1fr; gap: 8px; }
+  .item-rechts { flex-direction: row; align-items: center; flex-wrap: wrap; }
+
+  /* Zoekbalk stapelen */
+  .zoekbalk { flex-direction: column; }
+  .zoekbalk input[type=search], .zoekbalk select { width: 100%; }
+
+  /* Tabs horizontaal scrollen */
+  .bron-tabs {
+    overflow-x: auto; flex-wrap: nowrap;
+    -webkit-overflow-scrolling: touch; scrollbar-width: none;
+    padding-bottom: 1px;
+  }
+  .bron-tabs::-webkit-scrollbar { display: none; }
+  .bron-tab { white-space: nowrap; padding: 10px 14px; }
+  .bron-tab-groep { margin-left: 4px; padding-left: 4px; }
+
+  /* Stats */
   .stats-rij { gap: 8px; }
+  .stat-kaarten { grid-template-columns: 1fr 1fr; }
+
+  /* Agenda */
+  .agenda-item { flex-wrap: wrap; gap: 8px; }
+  .agenda-rechts { flex-direction: row; align-items: center; gap: 8px; }
+
+  /* Toezeggingen */
+  .toezegging-kaart { flex-direction: column; }
+
+  /* Paginering */
+  .paginering { gap: 4px; flex-wrap: wrap; justify-content: center; }
+  .paginering a { min-width: 40px; min-height: 40px; display: flex; align-items: center; justify-content: center; }
+
+  /* Briefing presets scrollen */
+  .preset-sectie { overflow-x: auto; flex-wrap: nowrap; -webkit-overflow-scrolling: touch; padding-bottom: 4px; }
+  .preset-knop { white-space: nowrap; min-height: 38px; }
+
+  /* Fractie-knoppen scrollen */
+  .fractie-knoppen { overflow-x: auto; flex-wrap: nowrap; -webkit-overflow-scrolling: touch; padding-bottom: 4px; }
+  .fractie-knop { white-space: nowrap; min-height: 38px; }
+
+  /* Kaarten */
+  .kaart { padding: 16px; }
+  .stat-sectie { padding: 16px; }
+
+  /* Pagina header */
+  .pagina-header h1 { font-size: 20px; }
+
+  /* Knoppen groter voor touch */
+  .btn { min-height: 44px; }
+  .sidebar-link { min-height: 44px; }
+
+  /* Nieuws kaarten */
+  .media-kaarten { grid-template-columns: 1fr; }
 }
 
 /* ── Gedeelde pagina-header ──────────────────────────────────────────────── */

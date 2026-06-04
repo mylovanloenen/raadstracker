@@ -106,6 +106,47 @@
 
 </div>
 
+<!-- Mobiele navigatiebalk -->
+<nav class="mobiel-nav">
+  <div class="mobiel-nav-items">
+    <a href="/nieuws" class="mobiel-nav-item {% if request.url.path == '/nieuws' %}actief{% endif %}">
+      <svg width="22" height="22" viewBox="0 0 22 22" fill="none">
+        <circle cx="11" cy="11" r="8" stroke="currentColor" stroke-width="1.6"/>
+        <path d="M11 7v4.5l2.5 2.5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>
+      </svg>
+      Nieuws
+    </a>
+    <a href="/" class="mobiel-nav-item {% if request.url.path == '/' %}actief{% endif %}">
+      <svg width="22" height="22" viewBox="0 0 22 22" fill="none">
+        <rect x="3" y="3" width="7" height="7" rx="1.5" fill="currentColor" opacity=".7"/>
+        <rect x="12" y="3" width="7" height="7" rx="1.5" fill="currentColor" opacity=".7"/>
+        <rect x="3" y="12" width="7" height="7" rx="1.5" fill="currentColor" opacity=".7"/>
+        <rect x="12" y="12" width="7" height="7" rx="1.5" fill="currentColor" opacity=".7"/>
+      </svg>
+      Archief
+    </a>
+    <a href="/agenda" class="mobiel-nav-item {% if request.url.path == '/agenda' %}actief{% endif %}">
+      <svg width="22" height="22" viewBox="0 0 22 22" fill="none">
+        <rect x="3" y="4" width="16" height="15" rx="2" stroke="currentColor" stroke-width="1.6"/>
+        <path d="M7 3v2M15 3v2M3 9h16" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>
+      </svg>
+      Agenda
+    </a>
+    <a href="/briefing" class="mobiel-nav-item {% if request.url.path == '/briefing' %}actief{% endif %}">
+      <svg width="22" height="22" viewBox="0 0 22 22" fill="none">
+        <path d="M4 6h14M4 11h10M4 16h7" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>
+      </svg>
+      Briefing
+    </a>
+    <a href="/chat" class="mobiel-nav-item {% if request.url.path == '/chat' %}actief{% endif %}">
+      <svg width="22" height="22" viewBox="0 0 22 22" fill="none">
+        <path d="M3 5a2 2 0 012-2h12a2 2 0 012 2v9a2 2 0 01-2 2h-5l-4 4v-4H5a2 2 0 01-2-2V5z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/>
+      </svg>
+      AI Chat
+    </a>
+  </div>
+</nav>
+
 {% block scripts %}{% endblock %}
 <script>
   if ('serviceWorker' in navigator) {
