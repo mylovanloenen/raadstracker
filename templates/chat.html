@@ -120,8 +120,8 @@ let bezig = false;
 let gespreksHistory = [];  // [{role: 'user'|'assistant', content: '...'}]
 
 // ── Markdown renderer ──────────────────────────────────────────────────────
-function renderMarkdown(text) {
-  return text
+function renderMarkdown(text, bronnen) {
+  let html = text
     .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
     .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
     .replace(/\*(.+?)\*/g, '<em>$1</em>')
@@ -130,24 +130,40 @@ function renderMarkdown(text) {
     .replace(/^# (.+)$/gm, '<h1>$1</h1>')
     .replace(/^[*-] (.+)$/gm, '<li>$1</li>')
     .replace(/(<li>[\s\S]*?<\/li>\n?)+/g, m => `<ul>${m}</ul>`)
-    .replace(/\[(\d+)\]/g, '<span class="bronref">[$1]</span>')
     .replace(/\n\n/g, '</p><p>');
+
+  // Vervang [n] door klikbare blauwe links als bronnen beschikbaar zijn
+  if (bronnen && bronnen.length) {
+    html = html.replace(/\[(\d+)\]/g, (match, n) => {
+      const bron = bronnen.find(b => b.nr === parseInt(n));
+      if (bron && bron.url) {
+        return `<a href="${bron.url}" target="_blank" rel="noopener" class="bron-inline">[${n}]</a>`;
+      }
+      return `<span class="bronref">[${n}]</span>`;
+    });
+  } else {
+    html = html.replace(/\[(\d+)\]/g, '<span class="bronref">[$1]</span>');
+  }
+
+  return html;
 }
 
 // ── Typewriter wachtrij ────────────────────────────────────────────────────
 function maakTypewriter(tekstvak) {
-  let wachtrij = '';       // binnenkomende tekst
-  let weergegeven = '';    // wat al getoond is
-  let klaar = false;       // stream klaar?
+  let wachtrij = '';
+  let weergegeven = '';
+  let klaar = false;
   let bronnenCallback = null;
+  let bronnenData = null;
 
-  const MS_PER_CHAR = 12; // typsnelheid (ms per karakter)
+  const MS_PER_CHAR = 12;
 
   function tik() {
     if (wachtrij.length === 0) {
       if (klaar) {
-        // Alles getypt — cursor weg, bronnen tonen
+        // Alles getypt — eindrender met klikbare bronlinks
         tekstvak.querySelectorAll('.cursor-knipperen').forEach(e => e.remove());
+        tekstvak.innerHTML = `<p>${renderMarkdown(weergegeven, bronnenData)}</p>`;
         tekstvak.id = '';
         if (bronnenCallback) bronnenCallback();
       } else {
@@ -155,10 +171,10 @@ function maakTypewriter(tekstvak) {
       }
       return;
     }
-    // Typ meerdere karakters per tick zodat het vloeiend blijft bij snelle chunks
     const stap = Math.max(1, Math.min(3, Math.floor(wachtrij.length / 10)));
     weergegeven += wachtrij.slice(0, stap);
     wachtrij = wachtrij.slice(stap);
+    // Tijdens typen nog geen links (bronnen zijn er nog niet)
     tekstvak.innerHTML = `<p>${renderMarkdown(weergegeven)}</p><span class="cursor-knipperen"></span>`;
     scrollNaarOnder();
     setTimeout(tik, MS_PER_CHAR);
@@ -168,6 +184,7 @@ function maakTypewriter(tekstvak) {
 
   return {
     voegToe(tekst) { wachtrij += tekst; },
+    setBronnen(data) { bronnenData = data; },
     setKlaar(cb) { klaar = true; bronnenCallback = cb; },
   };
 }
@@ -261,6 +278,7 @@ document.getElementById('chat-form').addEventListener('submit', async (e) => {
       if (data === '[KLAAR]') break;
       if (data.startsWith('[BRONNEN]')) {
         bronnenData = JSON.parse(data.slice(9));
+        typewriter.setBronnen(bronnenData);
       } else {
         typewriter.voegToe(data.replace(/\\n/g, '\n'));
       }

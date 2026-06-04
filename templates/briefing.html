@@ -68,8 +68,10 @@ function kopieer() {
   navigator.clipboard.writeText(document.getElementById('output').innerText);
 }
 
-function renderMarkdown(text) {
-  return text
+let bronnenLijst = [];
+
+function renderMarkdown(text, bronnen) {
+  let html = text
     .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
     .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
     .replace(/^### (.+)$/gm, '<h3>$1</h3>')
@@ -77,8 +79,22 @@ function renderMarkdown(text) {
     .replace(/^# (.+)$/gm,   '<h1>$1</h1>')
     .replace(/^[*-] (.+)$/gm,'<li>$1</li>')
     .replace(/(<li>[\s\S]*?<\/li>\n?)+/g, m => `<ul>${m}</ul>`)
-    .replace(/\n\n/g, '</p><p>')
-    .replace(/^(?!<[hulo])(.+)/gm, m => m.startsWith('<') ? m : m);
+    .replace(/\n\n/g, '</p><p>');
+
+  // Vervang [n] door klikbare blauwe links als bronnen beschikbaar zijn
+  if (bronnen && bronnen.length) {
+    html = html.replace(/\[(\d+)\]/g, (match, n) => {
+      const bron = bronnen.find(b => b.nr === parseInt(n));
+      if (bron && bron.url) {
+        return `<a href="${bron.url}" target="_blank" rel="noopener" class="bron-inline">[${n}]</a>`;
+      }
+      return `<span class="bronref">[${n}]</span>`;
+    });
+  } else {
+    html = html.replace(/\[(\d+)\]/g, '<span class="bronref">[$1]</span>');
+  }
+
+  return html;
 }
 
 document.getElementById('briefing-form').addEventListener('submit', async (e) => {
@@ -92,6 +108,7 @@ document.getElementById('briefing-form').addEventListener('submit', async (e) =>
   const kaart   = document.getElementById('resultaat-kaart');
   const btn     = document.getElementById('briefing-btn');
 
+  bronnenLijst = [];
   output.innerHTML = '';
   bronnen.className = 'bronnen-sectie';
   bronnen.innerHTML = '<h4>Geraadpleegde stukken</h4>';
@@ -122,13 +139,15 @@ document.getElementById('briefing-form').addEventListener('submit', async (e) =>
       const data = line.slice(6);
       if (data === '[KLAAR]') break;
       if (data.startsWith('[BRONNEN]')) {
-        const lijst = JSON.parse(data.slice(9));
+        bronnenLijst = JSON.parse(data.slice(9));
         bronnen.innerHTML = '<h4>Geraadpleegde stukken</h4>' +
-          lijst.map(b => `<a href="${b.url}" target="_blank" rel="noopener">[${b.nr}] ${b.titel}</a>`).join('');
+          bronnenLijst.map(b => `<a href="${b.url}" target="_blank" rel="noopener">[${b.nr}] ${b.titel}</a>`).join('');
         bronnen.classList.add('zichtbaar');
+        // Herrender tekst met klikbare links
+        output.innerHTML = '<p>' + renderMarkdown(rawText, bronnenLijst) + '</p>';
       } else {
         rawText += data.replace(/\\n/g, '\n');
-        output.innerHTML = '<p>' + renderMarkdown(rawText) + '</p>';
+        output.innerHTML = '<p>' + renderMarkdown(rawText, bronnenLijst) + '</p>';
       }
     }
   }

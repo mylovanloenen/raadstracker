@@ -954,3 +954,19 @@ textarea:focus, input[type=text]:focus {
   font-family: inherit;
 }
 .preset-knop:hover, .preset-knop.actief { background: var(--blauw); color: white; border-color: var(--blauw); }
+
+/* ── Inline bronverwijzingen ─────────────────────────────────────────────── */
+.bron-inline {
+  color: var(--blauw);
+  text-decoration: none;
+  font-weight: 700;
+  font-size: .85em;
+  vertical-align: super;
+  line-height: 0;
+  padding: 0 1px;
+  border-bottom: 1px solid transparent;
+  transition: border-color .15s;
+}
+.bron-inline:hover {
+  border-bottom-color: var(--blauw);
+}
