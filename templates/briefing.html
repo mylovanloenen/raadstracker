@@ -8,6 +8,12 @@
 </div>
 
 <div class="kaart">
+  <div class="preset-sectie">
+    <span class="preset-label">Snelkeuze:</span>
+    <button class="preset-knop" onclick="laadPreset('mylo')">Mylo</button>
+    <button class="preset-knop" onclick="laadPreset('zuidoost')">Nieuw-West &amp; Zuidoost</button>
+    <button class="preset-knop" onclick="laadPreset('digitaal')">Digitaal &amp; Democratie</button>
+  </div>
   <form id="briefing-form">
     <div class="form-groep">
       <label for="onderwerpen">Onderwerpen (één per regel of kommagescheiden)</label>
@@ -32,6 +38,26 @@
 
 {% block scripts %}
 <script>
+const PRESETS = {
+  mylo: [
+    'wonen', 'volkshuisvesting', 'openbaar vervoer',
+    'jeugdzorg', 'klimaat', 'duurzaamheid', 'veiligheid', 'financiën'
+  ],
+  zuidoost: [
+    'Masterplan Nieuw-West', 'Masterplan Zuidoost',
+    'Stadsdeel Zuidoost', 'jongerenwerk', 'opvang'
+  ],
+  digitaal: [
+    'democratisering', 'digitale stad', 'opvang', 'jongerenwerk'
+  ],
+};
+
+function laadPreset(naam) {
+  document.getElementById('onderwerpen').value = PRESETS[naam].join('\n');
+  document.querySelectorAll('.preset-knop').forEach(b => b.classList.remove('actief'));
+  event.target.classList.add('actief');
+}
+
 function kopieer() {
   navigator.clipboard.writeText(document.getElementById('output').innerText);
 }
