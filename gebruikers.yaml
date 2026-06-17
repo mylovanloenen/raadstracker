@@ -26,3 +26,17 @@ gebruikers:
       - duurzaamheid
       - veiligheid
       - financiën
+
+  - naam: Sidney Cruickshank
+    email: sidney.cruickshank@gmail.com
+    gemeente: amsterdam
+    actief: true
+    onderwerpen:
+      - wonen
+      - volkshuisvesting
+      - openbaar vervoer
+      - jeugdzorg
+      - klimaat
+      - duurzaamheid
+      - veiligheid
+      - financiën
