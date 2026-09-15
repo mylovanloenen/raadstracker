@@ -26,7 +26,16 @@ jobs:
     name: Dagelijkse data-update + briefing
     runs-on: ubuntu-latest
     if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    permissions:
+      actions: write
+      contents: write
     steps:
+      - uses: actions/checkout@v4
+      - name: Houd workflow actief (GitHub zet cron uit na 60 dagen zonder commits)
+        uses: gautamkrishnar/keepalive-workflow@v2
+        with:
+          use_api: true
+
       - name: Trigger dagelijkse update
         run: |
           curl -s -X POST https://raadstracker.fly.dev/api/dagelijkse-update \
