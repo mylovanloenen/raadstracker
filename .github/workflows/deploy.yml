@@ -30,11 +30,10 @@ jobs:
       actions: write
       contents: write
     steps:
-      - uses: actions/checkout@v4
       - name: Houd workflow actief (GitHub zet cron uit na 60 dagen zonder commits)
-        uses: gautamkrishnar/keepalive-workflow@v2
-        with:
-          use_api: true
+        run: gh api -X PUT "repos/${{ github.repository }}/actions/workflows/deploy.yml/enable"
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Trigger dagelijkse update
         run: |
