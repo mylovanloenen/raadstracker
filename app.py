@@ -494,6 +494,24 @@ async def api_dagelijkse_briefing(background_tasks: BackgroundTasks, token: str 
     return {"status": "briefing verstuurd"}
 
 
+@app.post("/api/dagelijks")
+async def api_dagelijks(background_tasks: BackgroundTasks, token: str = Form(...)):
+    """Update + briefing in één achtergrondtaak, zodat de briefing altijd na de update komt."""
+    if token != os.environ.get("SCRAPE_TOKEN", ""):
+        return {"error": "Ongeldig token"}
+
+    def run_alles():
+        from dagelijkse_update import run as run_update
+        from dagelijkse_briefing import run as run_briefing
+        try:
+            run_update(dagen=3)
+        finally:
+            run_briefing()
+
+    background_tasks.add_task(run_alles)
+    return {"status": "dagelijkse update + briefing gestart"}
+
+
 @app.post("/api/scrape")
 async def api_scrape(background_tasks: BackgroundTasks, token: str = Form(...)):
     """Backwards-compat alias voor /api/dagelijkse-update."""
