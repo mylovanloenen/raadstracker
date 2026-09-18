@@ -8,10 +8,13 @@ import os
 import json
 import asyncio
 import logging
+import threading
+import time
 from pathlib import Path
 
 import anthropic
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta
+from zoneinfo import ZoneInfo
 from fastapi import FastAPI, Request, Form, BackgroundTasks
 from fastapi.responses import HTMLResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
@@ -30,6 +33,53 @@ app.mount("/static", StaticFiles(directory="static"), name="static")
 templates = Jinja2Templates(directory="templates")
 
 db.init_db()
+
+# ── Ingebouwde dagelijkse planner ────────────────────────────────────────────
+# GitHub's cron loopt 45 min tot 4,5 uur achter; daarom plannen we hier zelf.
+DAGELIJKS_UUR = int(os.environ.get("DAGELIJKS_UUR", "7"))
+DAGELIJKS_MINUUT = int(os.environ.get("DAGELIJKS_MINUUT", "50"))
+_dagelijks_lock = threading.Lock()
+
+
+def run_dagelijks(dagen: int = 3) -> None:
+    """Update + briefing, nooit dubbel tegelijk."""
+    if not _dagelijks_lock.acquire(blocking=False):
+        logger.warning("Dagelijkse run al bezig — overgeslagen")
+        return
+    try:
+        from dagelijkse_update import run as run_update
+        from dagelijkse_briefing import run as run_briefing
+        try:
+            run_update(dagen=dagen)
+        except Exception as e:
+            logger.error(f"Dagelijkse update mislukt: {e}")
+        try:
+            run_briefing()
+        except Exception as e:
+            logger.error(f"Briefing mislukt: {e}")
+    finally:
+        _dagelijks_lock.release()
+
+
+def _planner_loop() -> None:
+    tz = ZoneInfo("Europe/Amsterdam")
+    while True:
+        nu = datetime.now(tz)
+        volgende = nu.replace(hour=DAGELIJKS_UUR, minute=DAGELIJKS_MINUUT, second=0, microsecond=0)
+        if volgende <= nu:
+            volgende += timedelta(days=1)
+        wacht = (volgende - nu).total_seconds()
+        logger.info(f"Volgende dagelijkse run: {volgende:%Y-%m-%d %H:%M %Z} (over {wacht/3600:.1f} uur)")
+        time.sleep(wacht)
+        logger.info("Dagelijkse run gestart door planner")
+        run_dagelijks()
+
+
+@app.on_event("startup")
+def start_planner() -> None:
+    if os.environ.get("PLANNER_UIT") == "1":
+        return
+    threading.Thread(target=_planner_loop, name="dagelijkse-planner", daemon=True).start()
 
 
 def get_claude() -> anthropic.Anthropic:
@@ -500,15 +550,7 @@ async def api_dagelijks(background_tasks: BackgroundTasks, token: str = Form(...
     if token != os.environ.get("SCRAPE_TOKEN", ""):
         return {"error": "Ongeldig token"}
 
-    def run_alles():
-        from dagelijkse_update import run as run_update
-        from dagelijkse_briefing import run as run_briefing
-        try:
-            run_update(dagen=3)
-        finally:
-            run_briefing()
-
-    background_tasks.add_task(run_alles)
+    background_tasks.add_task(run_dagelijks, 3)
     return {"status": "dagelijkse update + briefing gestart"}
 
 

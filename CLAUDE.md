@@ -23,7 +23,7 @@ Een AI-aangedreven politiek informatieplatform voor Amsterdamse raadsleden en be
 | AI | Claude claude-sonnet-4-6 (Anthropic), streaming via SSE |
 | Email | Resend, from: `briefing@d66-connect.com` |
 | Hosting | Fly.io, 512MB RAM, shared CPU |
-| Cron | GitHub Actions: dagelijks 06:00 UTC (= 08:00 CEST) |
+| Planning | Ingebouwde planner in app.py: dagelijks 07:50 Amsterdam-tijd |
 | Nieuws | Google News RSS (21 queries) |
 
 ---
@@ -36,7 +36,7 @@ Beheer via `flyctl secrets`:
 |------|--------------|
 | `ANTHROPIC_API_KEY` | Claude API key |
 | `RESEND_API_KEY` | Resend email API key |
-| `SCRAPE_TOKEN` | `raadstracker2024` — authoriseert `/api/dagelijkse-update` endpoint |
+| `SCRAPE_TOKEN` | `raadstracker2024` — authoriseert `/api/dagelijks*` endpoints |
 
 GitHub Actions heeft dezelfde secrets nodig als repository secrets (Settings → Secrets).
 
@@ -73,15 +73,26 @@ flyctl secrets set SCRAPE_TOKEN=raadstracker2024
 
 ---
 
-## Dagelijkse cron (GitHub Actions)
+## Dagelijkse planning
 
-Twee workflows in `.github/workflows/`:
+De app plant de dagelijkse run **zelf** (zie `_planner_loop` in `app.py`): elke dag om
+**07:50 Amsterdam-tijd** draait `run_dagelijks()` = data-update gevolgd door de briefing-mail.
+Tijdstip aanpasbaar via env vars `DAGELIJKS_UUR` / `DAGELIJKS_MINUUT` (`flyctl secrets set`).
 
-1. **deploy.yml** — deployt naar Fly.io bij elke push naar `main`
-2. **dagelijks.yml** — draait elke dag 06:00 UTC:
-   - POST naar `/api/dagelijkse-update?token=raadstracker2024` → haalt nieuwe raadsstukken op
-   - POST naar `/api/media-update?token=raadstracker2024` → haalt nieuws op
-   - POST naar `/api/briefing-sturen?token=raadstracker2024` → stuurt emails
+Waarom niet GitHub cron? Die liep 45 minuten tot 4,5 uur te laat en wordt na 60 dagen
+zonder commits automatisch uitgeschakeld. Fly.io draait de machine 24/7 (`min_machines_running = 1`).
+
+Handmatig triggeren (update + briefing in één keer):
+```bash
+curl -X POST https://raadstracker.fly.dev/api/dagelijks -d "token=raadstracker2024"
+```
+Losse endpoints: `/api/dagelijkse-update` en `/api/dagelijkse-briefing`.
+
+**Let op:** een deploy herstart de server en breekt een lopende update af. Deploy dus niet
+rond 07:50.
+
+`.github/workflows/deploy.yml` deployt bij push naar `main`; via *workflow_dispatch* kan
+ook een handmatige update + briefing gestart worden (na de deploy).
 
 ---
 
