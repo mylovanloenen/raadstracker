@@ -13,6 +13,7 @@ import sys
 import time
 import logging
 import argparse
+import re
 from datetime import date, timedelta
 from pathlib import Path
 
@@ -150,7 +151,29 @@ def _parse_api_item(api_item: dict, module_type: str, cfg: dict) -> dict | None:
         "uitslag": str(uitslag)[:100] if uitslag else None,
         "gekoppeld_evenement": str(gekoppeld)[:300] if gekoppeld else None,
         "bron_url": bron_url,
+        "doc_url": _doc_url(api_item),
+        "toelichting": _toelichting(attrs),
     }
+
+
+def _doc_url(api_item: dict) -> str | None:
+    """Eerste Notubiz-document (hoofddocument / schriftelijke vraag) van een item."""
+    attrs = api_item.get("attributes", {}).get("attribute", [])
+    if isinstance(attrs, dict):
+        attrs = [attrs]
+    for a in attrs:
+        v = a.get("value")
+        if isinstance(v, dict) and "notubiz.nl/document" in str(v.get("url", "")):
+            return v["url"]
+    return None
+
+
+def _toelichting(attrs: dict) -> str | None:
+    t = attrs.get("Toelichting")
+    if not t or not isinstance(t, str):
+        return None
+    t = " ".join(re.sub(r"<[^>]+>", " ", t).split())
+    return t[:1000] or None
 
 
 def importeer_module(module_type: str, start_id: int = 0, update_mode: bool = False) -> int:

@@ -28,6 +28,7 @@ load_dotenv(Path(__file__).parent / ".env", override=True)
 import database as db
 from agenda import haal_agenda
 from onderwerpen import score_item, sorteer_op_relevantie
+from samenvattingen import vul_samenvattingen
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
 logger = logging.getLogger(__name__)
@@ -154,7 +155,8 @@ def heeft_inhoud(d: dict) -> bool:
 
 def _regel(it: dict, met_uitslag: bool = False) -> str:
     extra = f", uitslag: {uitslag_label(it.get('uitslag'))}" if met_uitslag and it.get("uitslag") else ""
-    return f"- [{TYPE_LABEL.get(it['type'], it['type'])}] {it['titel']} (indiener: {it.get('indiener') or '?'}, {it.get('datum_ingediend') or '?'}{extra})"
+    sam = f"\n  Inhoud: {it['samenvatting']}" if it.get("samenvatting") else ""
+    return f"- [{TYPE_LABEL.get(it['type'], it['type'])}] {it['titel']} (indiener: {it.get('indiener') or '?'}, {it.get('datum_ingediend') or '?'}{extra}){sam}"
 
 
 def genereer_samenvatting(naam: str, onderwerpen: list[str], d: dict) -> dict:
@@ -175,7 +177,7 @@ def genereer_samenvatting(naam: str, onderwerpen: list[str], d: dict) -> dict:
     prompt = f"""Je bent fractiemedewerker van {naam}, gemeenteraadslid in Amsterdam. Portefeuille: {', '.join(onderwerpen) or 'algemeen'}.
 Vandaag is {nl_datum(date.today(), met_dag=True)}. Schrijf de ochtendbriefing die {naam.split()[0]} in twee minuten leest.
 
-BRONNEN (alleen dit gebruiken; niets verzinnen, geen aannames over inhoud die niet in de titel staat):
+BRONNEN (alleen dit gebruiken; niets verzinnen, geen aannames over inhoud die niet in titel of 'Inhoud' staat):
 Vergaderingen komende 7 dagen:
 {agenda}
 Nieuw sinds de vorige mail (raadsstukken, met indiener):
@@ -247,9 +249,12 @@ def uitslag_badge(it: dict, standaard: str = "Motie") -> str:
     return badge(lab, ach, kl)
 
 
-def rij_html(titel: str, url: str, meta: str, badge_html: str = "") -> str:
+def rij_html(titel: str, url: str, meta: str, badge_html: str = "", beschrijving: str = "") -> str:
+    besch = (f'<div style="font:14px/1.5 {FONT};color:{KLEUR_TEKST};margin-top:5px">{e(beschrijving)}</div>'
+             if beschrijving else "")
     return (f'<tr><td style="padding:12px 0;border-bottom:1px solid #f0eeeb">'
             f'<div style="font:600 15px/1.45 {FONT}">{badge_html}<a href="{e(url)}" style="color:{KLEUR_BLAUW};text-decoration:none">{e(titel)}</a></div>'
+            f'{besch}'
             f'<div style="font:13px/1.4 {FONT};color:{KLEUR_GRIJS};margin-top:4px">{meta}</div></td></tr>')
 
 
@@ -267,7 +272,7 @@ def sectie_items(kop: str, items: list[dict], label_fn=None, meta_fn=None) -> st
     for it in items:
         lab = label_fn(it) if label_fn else badge(TYPE_LABEL.get(it["type"], it["type"]))
         meta = meta_fn(it) if meta_fn else item_meta(it)
-        out += rij_html(it.get("titel") or "(geen titel)", it.get("bron_url") or SITE, meta, lab)
+        out += rij_html(it.get("titel") or "(geen titel)", it.get("bron_url") or SITE, meta, lab, it.get("samenvatting") or "")
     return out
 
 
@@ -368,7 +373,12 @@ def bouw_tekst(naam: str, ai: dict, d: dict) -> str:
                      ("NIEUWE INGEKOMEN STUKKEN", d["nieuw"]["ingekomen_stuk"]),
                      ("UITSLAGEN", d["uitslagen"]), ("TERMIJNEN", d["termijnen"]), ("VOOR JOUW ONDERWERPEN", d["relevant"])):
         if lst:
-            r += [kop] + [f"- {i['titel']} ({i.get('indiener') or '—'}) {i.get('bron_url') or ''}" for i in lst] + [""]
+            r.append(kop)
+            for i in lst:
+                r.append(f"- {i['titel']} ({i.get('indiener') or '—'}) {i.get('bron_url') or ''}")
+                if i.get("samenvatting"):
+                    r.append(f"  {i['samenvatting']}")
+            r.append("")
     if d["media"]:
         r += ["IN DE MEDIA"] + [f"- [{m['bron']}] {m['titel']} {m.get('url') or ''}" for m in d["media"]] + [""]
     r.append(SITE)
@@ -404,6 +414,10 @@ def stuur_briefing(naam: str, email: str, onderwerpen: list | None = None, test:
 
     logger.info(f"Briefing voor {naam}: {sum(len(v) for v in d['nieuw'].values())} nieuw, {len(d['uitslagen'])} uitslagen, "
                 f"{len(d['termijnen'])} termijnen, {len(d['relevant'])} relevant, {len(d['media'])} media")
+    try:
+        vul_samenvattingen([i for lst in d["nieuw"].values() for i in lst] + d["uitslagen"] + d["relevant"] + d["termijnen"])
+    except Exception as ex:
+        logger.error(f"Samenvattingen mislukt, mail gaat zonder: {ex}")
     ai = genereer_samenvatting(naam, onderwerpen, d)
     preheader = (ai["alineas"][0] if ai["alineas"] else "")[:140]
     onderwerp = onderwerpregel(ai, d)

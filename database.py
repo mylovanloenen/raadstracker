@@ -93,6 +93,9 @@ def get_connection() -> sqlite3.Connection:
 
 MIGRATIES = [
     "ALTER TABLE items ADD COLUMN uitslag_gewijzigd TEXT",
+    "ALTER TABLE items ADD COLUMN doc_url TEXT",
+    "ALTER TABLE items ADD COLUMN toelichting TEXT",
+    "ALTER TABLE items ADD COLUMN samenvatting TEXT",
     """CREATE TABLE IF NOT EXISTS gemaild (
         email TEXT NOT NULL, soort TEXT NOT NULL, ref_id INTEGER NOT NULL,
         verzonden TEXT DEFAULT (datetime('now')),
@@ -164,12 +167,15 @@ def upsert_item(item: dict) -> tuple[bool, int]:
                     termijn_einde = ?, datum_afdoening = ?, uitslag = ?,
                     gekoppeld_evenement = ?, bron_url = ?,
                     laatste_check = datetime('now'),
-                    uitslag_gewijzigd = CASE WHEN ? THEN datetime('now') ELSE uitslag_gewijzigd END
+                    uitslag_gewijzigd = CASE WHEN ? THEN datetime('now') ELSE uitslag_gewijzigd END,
+                    doc_url = COALESCE(?, doc_url),
+                    toelichting = COALESCE(?, toelichting)
                 WHERE id = ?""",
                 (
                     item["titel"], item["indiener"], item["datum_ingediend"],
                     item["termijn_einde"], item["datum_afdoening"], item["uitslag"],
-                    item["gekoppeld_evenement"], item["bron_url"], int(uitslag_gewijzigd), existing["id"],
+                    item["gekoppeld_evenement"], item["bron_url"], int(uitslag_gewijzigd),
+                    item.get("doc_url"), item.get("toelichting"), existing["id"],
                 ),
             )
             return False, existing["id"]
@@ -178,14 +184,15 @@ def upsert_item(item: dict) -> tuple[bool, int]:
                 """INSERT INTO items
                     (extern_id, gemeente_slug, type, titel, indiener, datum_ingediend,
                      termijn_einde, datum_afdoening, uitslag, gekoppeld_evenement,
-                     bron_url, laatste_check)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))""",
+                     bron_url, doc_url, toelichting, laatste_check)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))""",
                 (
                     item["extern_id"], item.get("gemeente_slug", "amsterdam"),
                     item["type"], item["titel"], item["indiener"],
                     item["datum_ingediend"], item["termijn_einde"],
                     item["datum_afdoening"], item["uitslag"],
                     item["gekoppeld_evenement"], item["bron_url"],
+                    item.get("doc_url"), item.get("toelichting"),
                 ),
             )
             return True, cursor.lastrowid
@@ -771,3 +778,8 @@ def get_media_op_datum(dagen: int = 3, limit: int = 60) -> list[dict]:
             (f"-{dagen} days", limit),
         ).fetchall()
     return [dict(r) for r in rows]
+
+
+def bewaar_samenvatting(item_id: int, samenvatting: str) -> None:
+    with get_connection() as conn:
+        conn.execute("UPDATE items SET samenvatting = ? WHERE id = ?", (samenvatting, item_id))

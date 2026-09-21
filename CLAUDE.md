@@ -156,6 +156,8 @@ Om iemand toe te voegen: bewerk `gebruikers.yaml`, commit en push.
   nieuw: schriftelijke vragen / moties / ingekomen stukken · uitslagen · termijnen schriftelijke vragen ·
   voor jouw onderwerpen (7 dagen) · in de media (publicatiedatum ≤3 dagen, Amsterdam-check, max 3 per bron).
 - Lege secties vallen weg; is alles leeg, dan geen mail.
+- **Korte beschrijving per stuk**: `samenvattingen.py` leest het Notubiz-hoofddocument (PDF, `items.doc_url`) of de toelichting
+  en laat Claude 1-2 zinnen schrijven; opgeslagen in `items.samenvatting` (één keer per stuk). Procedurele stukken worden overgeslagen.
 - **Uitslagen**: update-modus in `bulk_import.py` ververst ook bestaande items; `items.uitslag_gewijzigd` wordt gezet bij een nieuwe uitslag.
 - **Relevantie**: `onderwerpen.py` (SYNONIEMEN + woordgrens/accent-normalisatie), gedeeld met `/api/briefing`.
 - **Mail-technisch**: tabel-layout met inline styles, dark mode, preheader, plain-text versie, List-Unsubscribe,
@@ -199,6 +201,7 @@ SYNONIEMEN = {
 | `dagelijkse_briefing.py` | Briefingmail per gebruiker: selectie, AI-samenvatting, HTML/tekst, Resend |
 | `onderwerpen.py` | Synoniemen en relevantiescoring |
 | `agenda.py` | Notubiz vergaderagenda (voor /agenda en de mail) |
+| `samenvattingen.py` | Korte AI-beschrijving per raadsstuk op basis van het PDF-document |
 | `dagelijkse_update.py` | Dagelijkse scrape + alerting |
 | `media_import.py` | Google News RSS import (21 queries) |
 | `scraper.py` | Amsterdam Notubiz scraper |
