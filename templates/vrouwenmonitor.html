@@ -1,0 +1,55 @@
+{% extends "base.html" %}
+{% block title %}Vrouwenmonitor{% endblock %}
+
+{% block content %}
+<div class="pagina-header">
+  <h1>Amsterdamse Vrouwenmonitor</h1>
+  <p class="pagina-sub">Dagelijkse monitor: positie van vrouwen in Amsterdams beleid en lokale berichtgeving. Verstuurd aan {{ ontvangers | join(', ') }}.</p>
+</div>
+
+<div class="vm-layout">
+  <aside class="kaart vm-lijst">
+    <h2 style="font-size:14px;font-weight:700;margin:0 0 12px;">Rapporten</h2>
+    {% if not rapporten %}
+      <p style="color:#6b6963;font-size:14px;">Nog geen rapporten. De eerste monitor draait na de volgende dagelijkse update.</p>
+    {% endif %}
+    {% for r in rapporten %}
+      <a href="/vrouwenmonitor/{{ r.id }}" class="vm-rapport-link {% if rapport and rapport.id == r.id %}actief{% endif %}">
+        <strong>{{ r.datum }}</strong>
+        {% if r.data %}<span>{{ r.data.stukken }} stukken · {{ r.data.media }} media · {{ r.data.vragen }} vragen</span>{% endif %}
+        {% if not r.verstuurd_naar %}<span style="color:#8a6d00">niet verstuurd (test)</span>{% endif %}
+      </a>
+    {% endfor %}
+  </aside>
+
+  <section class="kaart vm-rapport">
+    {% if rapport %}
+      <h2 style="font-size:16px;font-weight:700;margin:0 0 16px;">{{ rapport.onderwerp }}</h2>
+      <div class="vm-body">{{ rapport.body_html | safe }}</div>
+    {% else %}
+      <p>Selecteer een rapport.</p>
+    {% endif %}
+  </section>
+</div>
+
+<style>
+  .vm-layout { display: grid; grid-template-columns: 240px 1fr; gap: 20px; align-items: start; }
+  .vm-rapport-link { display: block; padding: 8px 10px; border-radius: 8px; text-decoration: none; color: inherit; font-size: 13px; }
+  .vm-rapport-link span { display: block; color: #6b6963; font-size: 12px; }
+  .vm-rapport-link:hover, .vm-rapport-link.actief { background: #f0eeeb; }
+  .vm-body h2 { font-size: 14px; font-weight: 700; color: #6b6963; text-transform: uppercase; letter-spacing: .5px;
+                margin: 28px 0 12px; border-bottom: 1px solid #e2ddd8; padding-bottom: 6px; }
+  .vm-body h3 { font-size: 15px; margin: 18px 0 6px; }
+  .vm-body .intro { background: #f0eeeb; border-left: 4px solid #003082; padding: 14px 18px; border-radius: 0 8px 8px 0; line-height: 1.6; }
+  .vm-body .stuk { padding: 12px 0; border-bottom: 1px solid #f0eeeb; }
+  .vm-body .stuk a { color: #003082; text-decoration: none; font-weight: 600; }
+  .vm-body .meta { font-size: 12px; color: #9b9790; margin: 3px 0 6px; }
+  .vm-body .cls { display: inline-block; font-size: 11px; font-weight: 700; color: white; padding: 2px 8px; border-radius: 20px; margin-right: 6px; }
+  .vm-body .toel { font-size: 14px; line-height: 1.55; margin: 6px 0 0; }
+  .vm-body .vraag { background: #f7f9fc; border: 1px solid #e0e6f0; border-radius: 8px; padding: 14px 16px; margin: 12px 0; }
+  .vm-body .vraag ol { margin: 8px 0 0 18px; padding: 0; } .vm-body .vraag li { margin: 4px 0; line-height: 1.5; }
+  .vm-body .bron { font-size: 13px; } .vm-body .bron li { margin: 3px 0; }
+  .vm-body .status-ok { color: #1b7f4d; } .vm-body .status-beperkt { color: #8a6d00; } .vm-body .status-fout { color: #b3441e; }
+  @media (max-width: 800px) { .vm-layout { grid-template-columns: 1fr; } }
+</style>
+{% endblock %}

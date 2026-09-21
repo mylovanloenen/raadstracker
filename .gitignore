@@ -6,3 +6,4 @@ __pycache__/
 *.db-wal
 mail_preview*.html
 .fly/
+vrouwenmonitor_preview.html

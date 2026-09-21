@@ -57,6 +57,11 @@ def run_dagelijks(dagen: int = 3) -> None:
             run_briefing()
         except Exception as e:
             logger.error(f"Briefing mislukt: {e}")
+        try:
+            from vrouwenmonitor import run as run_vrouwenmonitor
+            run_vrouwenmonitor()
+        except Exception as e:
+            logger.error(f"Vrouwenmonitor mislukt: {e}")
     finally:
         _dagelijks_lock.release()
 
@@ -542,6 +547,52 @@ async def api_dagelijkse_briefing(background_tasks: BackgroundTasks, token: str 
 
     background_tasks.add_task(run_briefing)
     return {"status": "briefing verstuurd"}
+
+
+# ── Amsterdamse Vrouwenmonitor ───────────────────────────────────────────────
+
+@app.get("/vrouwenmonitor", response_class=HTMLResponse)
+async def vrouwenmonitor_page(request: Request):
+    import vrouwenmonitor as vm
+    rapporten = vm.get_rapporten(limit=30)
+    for r in rapporten:
+        try:
+            r["data"] = json.loads(r.get("data_json") or "{}")
+        except json.JSONDecodeError:
+            r["data"] = {}
+    laatste = vm.get_rapport(rapporten[0]["id"]) if rapporten else None
+    return templates.TemplateResponse("vrouwenmonitor.html", {
+        "request": request, "rapporten": rapporten, "rapport": laatste,
+        "ontvangers": vm.ONTVANGERS,
+    })
+
+
+@app.get("/vrouwenmonitor/{rapport_id}", response_class=HTMLResponse)
+async def vrouwenmonitor_rapport(request: Request, rapport_id: int):
+    import vrouwenmonitor as vm
+    rapport = vm.get_rapport(rapport_id)
+    if not rapport:
+        return HTMLResponse("Rapport niet gevonden", status_code=404)
+    rapporten = vm.get_rapporten(limit=30)
+    return templates.TemplateResponse("vrouwenmonitor.html", {
+        "request": request, "rapporten": rapporten, "rapport": rapport,
+        "ontvangers": vm.ONTVANGERS,
+    })
+
+
+@app.post("/api/vrouwenmonitor")
+async def api_vrouwenmonitor(background_tasks: BackgroundTasks, token: str = Form(...),
+                             verstuur: int = Form(default=1)):
+    """Draait de Vrouwenmonitor los (verstuur=0 = alleen rapport opslaan, geen mail)."""
+    if token != os.environ.get("SCRAPE_TOKEN", ""):
+        return {"error": "Ongeldig token"}
+
+    def taak():
+        from vrouwenmonitor import run
+        run(verstuur=bool(verstuur))
+
+    background_tasks.add_task(taak)
+    return {"status": "vrouwenmonitor gestart", "verstuur": bool(verstuur)}
 
 
 @app.post("/api/dagelijks")

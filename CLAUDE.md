@@ -159,6 +159,27 @@ Om iemand toe te voegen: bewerk `gebruikers.yaml`, commit en push.
 
 ---
 
+## Amsterdamse Vrouwenmonitor (`vrouwenmonitor.py`)
+
+Dagelijkse monitor voor Nora Ait Boubker (D66): hoe wordt de positie van vrouwen meegenomen in
+Amsterdams beleid en lokale berichtgeving. Draait automatisch **na** de briefing in `run_dagelijks()`.
+
+- **Ontvangers:** `Nora.aitboubker@gmail.com`, `ricardo@equals.nl` (env `VROUWENMONITOR_TO`, kommagescheiden)
+- **Onderwerp:** `Amsterdamse Vrouwenmonitor | <datum>`
+- **Bronnen:** Notubiz (modules 1 ingekomen stukken, 4 schriftelijke vragen, 5 collegeberichten, 6 moties) incl.
+  PDF-tekst van het hoofddocument via `api.notubiz.nl/document/{id}/{versie}` (pypdf); officiële bekendmakingen
+  via overheid.nl SRU (`repository.overheid.nl/sru`, vergunningen uitgesloten); O&S homepage-links;
+  media uit `media_items` (48 uur) gefilterd op vrouwen/meisjes-termen.
+- **Niet automatisch uitleesbaar** (staat expliciet in de mail): amsterdam.nl/Open Amsterdam (403), Raadzaam (JS-app).
+- **Analyse:** Claude classificeert elk nieuw stuk in 5 categorieën (expliciet / gedeeltelijk / mogelijk relevant maar
+  niet aantoonbaar / geen duidelijke relevantie / onvoldoende informatie), duidt media (inhoudelijk vs vermelding),
+  en formuleert max 5 onderwerpen met concept-raadsvragen, gecheckt tegen eerdere vragen in `items`.
+- **Tabellen:** `vm_stukken` (dedupe op `extern_id`, elk stuk wordt één keer geanalyseerd) en `vm_rapporten`.
+- **Web:** `/vrouwenmonitor` toont alle rapporten. **API:** `POST /api/vrouwenmonitor` (token; `verstuur=0` = alleen opslaan).
+- **Lokaal testen:** `python3 vrouwenmonitor.py --droog` → `vrouwenmonitor_preview.html`, geen mail.
+
+---
+
 ## Synoniemen voor dunne thema's
 
 In `app.py` staat een `SYNONIEMEN` dict die smalle zoektermen uitbreidt:
@@ -185,7 +206,8 @@ SYNONIEMEN = {
 | `database.py` | SQLite queries, FTS5 search, statistieken |
 | `dagelijkse_briefing.py` | Email genereren en versturen via Resend |
 | `dagelijkse_update.py` | Dagelijkse scrape + alerting |
-| `media_import.py` | Google News RSS import |
+| `media_import.py` | Google News RSS import (27 queries, incl. 6 voor de Vrouwenmonitor) |
+| `vrouwenmonitor.py` | Amsterdamse Vrouwenmonitor: bronnen, analyse, concept-raadsvragen, mail |
 | `scraper.py` | Amsterdam Notubiz scraper |
 | `agv_import.py` | Waterschap AGV scraper |
 | `sdc_import.py` | SDC-gemeenten scraper |
