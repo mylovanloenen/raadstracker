@@ -35,13 +35,6 @@ QUERIES = [
     ("masterplan zuidoost amsterdam", "zuidoost"),
     ("amsterdam jongerenwerk jongeren", "jongerenwerk"),
     ("stadsdeel zuidoost amsterdam bestuur", "zuidoost"),
-    # Amsterdamse Vrouwenmonitor
-    ("amsterdam vrouwen", "vrouwen"),
-    ("amsterdam meisjes", "vrouwen"),
-    ("amsterdam vrouwelijke ondernemers OR sporters OR bewoners", "vrouwen"),
-    ("amsterdam emancipatie gender", "vrouwen"),
-    ("amsterdam straatintimidatie OR vrouwenveiligheid OR femicide", "vrouwen"),
-    ("amsterdam vrouwenopvang OR huiselijk geweld", "vrouwen"),
 ]
 
 RSS_URL = "https://news.google.com/rss/search?q={query}&hl=nl&gl=NL&ceid=NL:nl"
