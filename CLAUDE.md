@@ -150,12 +150,19 @@ Om iemand toe te voegen: bewerk `gebruikers.yaml`, commit en push.
 - Bronverwijzingen [n] klikbaar
 - Streaming via SSE
 
-### Dagelijkse email briefing
-- **Alleen Amsterdam** (geen Tweede Kamer, geen AGV, geen toezeggingen)
-- Altijd recente raadsstukken (laatste 15, ongeacht scrape-timing)
-- Recente moties (laatste 14 dagen)
-- Nieuws-sectie met AT5/Parool/NH Nieuws artikelen
-- Onderwerpen worden uitgebreid met synoniemen (zie `SYNONIEMEN` dict in `app.py`)
+### Dagelijkse email briefing (`dagelijkse_briefing.py`)
+- **Per ontvanger alleen nieuw sinds de vorige mail**: tabel `gemaild` (email, soort, ref_id). Eerste mail kijkt 36 uur terug.
+- **Opbouw**: AI-samenvatting (kop + 3 alinea's, per gebruiker op onderwerpen) · vergaderingen deze week (`agenda.py`) ·
+  nieuw: schriftelijke vragen / moties / ingekomen stukken · uitslagen · termijnen schriftelijke vragen ·
+  voor jouw onderwerpen (7 dagen) · in de media (publicatiedatum ≤3 dagen, Amsterdam-check, max 3 per bron).
+- Lege secties vallen weg; is alles leeg, dan geen mail.
+- **Uitslagen**: update-modus in `bulk_import.py` ververst ook bestaande items; `items.uitslag_gewijzigd` wordt gezet bij een nieuwe uitslag.
+- **Relevantie**: `onderwerpen.py` (SYNONIEMEN + woordgrens/accent-normalisatie), gedeeld met `/api/briefing`.
+- **Mail-technisch**: tabel-layout met inline styles, dark mode, preheader, plain-text versie, List-Unsubscribe,
+  dynamische onderwerpregel ("<kop> · 3 nieuw, 1 uitslag"). AI-fout → statische samenvatting, mail gaat toch.
+- **Testen**: `python3 dagelijkse_briefing.py --droog <email>` (schrijft mail_preview.html) of op de server:
+  `curl -X POST https://raadstracker.fly.dev/api/dagelijkse-briefing -d token=raadstracker2024 -d test_email=<adres>`
+  (test markeert niets als gemaild).
 
 ---
 
@@ -189,7 +196,9 @@ SYNONIEMEN = {
 |---------|------|
 | `app.py` | FastAPI app, alle routes, AI-logica, briefing-endpoint |
 | `database.py` | SQLite queries, FTS5 search, statistieken |
-| `dagelijkse_briefing.py` | Email genereren en versturen via Resend |
+| `dagelijkse_briefing.py` | Briefingmail per gebruiker: selectie, AI-samenvatting, HTML/tekst, Resend |
+| `onderwerpen.py` | Synoniemen en relevantiescoring |
+| `agenda.py` | Notubiz vergaderagenda (voor /agenda en de mail) |
 | `dagelijkse_update.py` | Dagelijkse scrape + alerting |
 | `media_import.py` | Google News RSS import (21 queries) |
 | `scraper.py` | Amsterdam Notubiz scraper |
