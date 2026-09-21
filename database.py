@@ -91,12 +91,31 @@ def get_connection() -> sqlite3.Connection:
     return conn
 
 
+MIGRATIES = [
+    "ALTER TABLE items ADD COLUMN uitslag_gewijzigd TEXT",
+    """CREATE TABLE IF NOT EXISTS gemaild (
+        email TEXT NOT NULL, soort TEXT NOT NULL, ref_id INTEGER NOT NULL,
+        verzonden TEXT DEFAULT (datetime('now')),
+        PRIMARY KEY (email, soort, ref_id))""",
+]
+
+
+def _migreer(conn: sqlite3.Connection) -> None:
+    for sql in MIGRATIES:
+        try:
+            conn.execute(sql)
+        except sqlite3.OperationalError:
+            pass  # kolom/tabel bestaat al
+
+
 def init_db() -> None:
     with get_connection() as conn:
         conn.executescript(SCHEMA)
         conn.execute(
             "INSERT OR IGNORE INTO gemeenten (slug, naam) VALUES ('amsterdam', 'Amsterdam')"
         )
+    with get_connection() as conn:
+        _migreer(conn)
 
 
 def sync_gebruikers(gebruikers_config: list[dict]) -> None:
@@ -136,17 +155,21 @@ def upsert_item(item: dict) -> tuple[bool, int]:
         ).fetchone()
 
         if existing:
+            oude_uitslag = conn.execute("SELECT uitslag FROM items WHERE id = ?", (existing["id"],)).fetchone()[0]
+            nieuwe_uitslag = item.get("uitslag")
+            uitslag_gewijzigd = bool(nieuwe_uitslag) and (nieuwe_uitslag or "").strip().lower() != (oude_uitslag or "").strip().lower()
             conn.execute(
                 """UPDATE items SET
                     titel = ?, indiener = ?, datum_ingediend = ?,
                     termijn_einde = ?, datum_afdoening = ?, uitslag = ?,
                     gekoppeld_evenement = ?, bron_url = ?,
-                    laatste_check = datetime('now')
+                    laatste_check = datetime('now'),
+                    uitslag_gewijzigd = CASE WHEN ? THEN datetime('now') ELSE uitslag_gewijzigd END
                 WHERE id = ?""",
                 (
                     item["titel"], item["indiener"], item["datum_ingediend"],
                     item["termijn_einde"], item["datum_afdoening"], item["uitslag"],
-                    item["gekoppeld_evenement"], item["bron_url"], existing["id"],
+                    item["gekoppeld_evenement"], item["bron_url"], int(uitslag_gewijzigd), existing["id"],
                 ),
             )
             return False, existing["id"]
@@ -663,3 +686,88 @@ def get_statistieken() -> dict:
         "uitslag": dict(uitslag_stats) if uitslag_stats else {},
         "totalen": [(r["gemeente_slug"], r["n"]) for r in totalen],
     }
+
+
+# ── Queries voor de dagelijkse briefing ──────────────────────────────────────
+
+def laatste_verzending(email: str) -> str | None:
+    with get_connection() as conn:
+        row = conn.execute("SELECT MAX(verzonden) FROM gemaild WHERE email = ?", (email,)).fetchone()
+    return row[0] if row else None
+
+
+def gemailde_ids(email: str, soort: str) -> set[int]:
+    with get_connection() as conn:
+        rows = conn.execute("SELECT ref_id FROM gemaild WHERE email = ? AND soort = ?", (email, soort)).fetchall()
+    return {r[0] for r in rows}
+
+
+def markeer_gemaild(email: str, soort: str, ids: list[int]) -> None:
+    if not ids:
+        return
+    with get_connection() as conn:
+        conn.executemany(
+            "INSERT OR IGNORE INTO gemaild (email, soort, ref_id) VALUES (?, ?, ?)",
+            [(email, soort, int(i)) for i in ids],
+        )
+
+
+def get_items_sinds(sinds: str, gemeente_slug: str = "amsterdam", limit: int = 60) -> list[dict]:
+    """Items die sinds tijdstip `sinds` (UTC, 'YYYY-MM-DD HH:MM:SS') zijn toegevoegd."""
+    with get_connection() as conn:
+        rows = conn.execute(
+            """SELECT * FROM items WHERE gemeente_slug = ? AND aangemaakt > ?
+               AND (datum_ingediend IS NULL OR datum_ingediend <= date('now', '+1 day'))
+               ORDER BY datum_ingediend DESC, aangemaakt DESC LIMIT ?""",
+            (gemeente_slug, sinds, limit),
+        ).fetchall()
+    return [dict(r) for r in rows]
+
+
+def get_items_laatste_dagen(dagen: int = 7, gemeente_slug: str = "amsterdam", limit: int = 200) -> list[dict]:
+    with get_connection() as conn:
+        rows = conn.execute(
+            """SELECT * FROM items WHERE gemeente_slug = ?
+               AND datum_ingediend BETWEEN date('now', ?) AND date('now', '+1 day')
+               ORDER BY datum_ingediend DESC LIMIT ?""",
+            (gemeente_slug, f"-{dagen} days", limit),
+        ).fetchall()
+    return [dict(r) for r in rows]
+
+
+def get_uitslagen_sinds(sinds: str, gemeente_slug: str = "amsterdam", limit: int = 20) -> list[dict]:
+    """Moties/amendementen waarvan de uitslag sinds `sinds` is ingevuld of gewijzigd."""
+    with get_connection() as conn:
+        rows = conn.execute(
+            """SELECT * FROM items WHERE gemeente_slug = ? AND type = 'motie'
+               AND uitslag IS NOT NULL AND uitslag != ''
+               AND uitslag_gewijzigd > ?
+               ORDER BY uitslag_gewijzigd DESC LIMIT ?""",
+            (gemeente_slug, sinds, limit),
+        ).fetchall()
+    return [dict(r) for r in rows]
+
+
+def get_termijnen(dagen: int = 7, gemeente_slug: str = "amsterdam", limit: int = 30) -> list[dict]:
+    """Schriftelijke vragen zonder afdoening waarvan de termijn binnen N dagen verloopt of max 14 dagen verstreken is."""
+    with get_connection() as conn:
+        rows = conn.execute(
+            """SELECT * FROM items WHERE gemeente_slug = ? AND type = 'schriftelijke_vraag'
+               AND (datum_afdoening IS NULL OR datum_afdoening = '')
+               AND termijn_einde BETWEEN date('now', '-14 days') AND date('now', ?)
+               ORDER BY termijn_einde ASC LIMIT ?""",
+            (gemeente_slug, f"+{dagen} days", limit),
+        ).fetchall()
+    return [dict(r) for r in rows]
+
+
+def get_media_op_datum(dagen: int = 3, limit: int = 60) -> list[dict]:
+    """Media op publicatiedatum (niet op importmoment)."""
+    init_media_db()
+    with get_connection() as conn:
+        rows = conn.execute(
+            """SELECT * FROM media_items WHERE datum >= date('now', ?) AND datum <= date('now', '+1 day')
+               ORDER BY datum DESC, aangemaakt DESC LIMIT ?""",
+            (f"-{dagen} days", limit),
+        ).fetchall()
+    return [dict(r) for r in rows]

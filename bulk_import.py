@@ -200,13 +200,8 @@ def importeer_module(module_type: str, start_id: int = 0, update_mode: bool = Fa
             if not item:
                 continue
 
-            # In update-mode: stop als we een al bekend ID tegenkomen
-            if update_mode and start_id > 0:
-                item_id = int(item["extern_id"])
-                if item_id <= start_id:
-                    overgeslagen += 1
-                    continue
-
+            # In update-mode worden bekende items in het scanvenster ook bijgewerkt,
+            # zodat later ingevulde uitslagen en afdoeningsdatums binnenkomen.
             is_new, _ = db.upsert_item(item)
             if is_new:
                 nieuw += 1

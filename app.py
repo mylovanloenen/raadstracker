@@ -229,39 +229,8 @@ async def toezeggingen_page(
 
 @app.get("/agenda", response_class=HTMLResponse)
 async def agenda_page(request: Request):
-    import requests as req
-    from datetime import timedelta
-    vanaf = date.today().isoformat()
-    tot = (date.today() + timedelta(days=56)).isoformat()
-    try:
-        r = req.get(
-            "https://api.notubiz.nl/organisations/281/events",
-            params={"format": "json", "date_from": vanaf, "date_to": tot},
-            timeout=10,
-        )
-        events_raw = r.json().get("events", {}).get("event", [])
-        if isinstance(events_raw, dict):
-            events_raw = [events_raw]
-        vergaderingen = []
-        for e in events_raw:
-            attrs = e.get("@attributes", {})
-            cat = e.get("category", {})
-            cat_type = cat.get("type", {}).get("label", "")
-            vergaderingen.append({
-                "id": attrs.get("id"),
-                "datum": attrs.get("date"),
-                "tijd": attrs.get("time", ""),
-                "titel": e.get("title", ""),
-                "locatie": e.get("location", ""),
-                "categorie": cat.get("title", ""),
-                "categorie_type": cat_type,
-                "agenda_items": attrs.get("agenda_item_count", 0),
-                "url": e.get("url", "").replace("http://", "https://"),
-                "kleur": cat.get("type", {}).get("color", "#666"),
-            })
-    except Exception as ex:
-        logger.error(f"Agenda ophalen mislukt: {ex}")
-        vergaderingen = []
+    from agenda import haal_agenda
+    vergaderingen = haal_agenda(dagen=56)
     return templates.TemplateResponse("agenda.html", {
         "request": request,
         "vergaderingen": vergaderingen,
@@ -303,16 +272,7 @@ async def fracties_page(request: Request, fractie: str = "", page: int = 1):
 
 # ── API: briefing (streaming) ─────────────────────────────────────────────────
 
-# Synoniemen voor dunne onderwerpen — verbreed de zoekactie
-SYNONIEMEN = {
-    "democratisering":  ["democratisering", "participatie", "inspraak", "burgerberaad", "bewonersinitiatieven"],
-    "digitale stad":    ["digitale stad", "digitalisering", "ICT", "technologie", "data", "smart city", "algoritme"],
-    "opvang":           ["opvang", "daklozen", "asiel", "vluchtelingen", "maatschappelijke opvang", "noodopvang"],
-    "jongerenwerk":     ["jongerenwerk", "jongeren", "jeugd", "jongerencentrum", "straatwerk"],
-    "masterplan nieuw-west": ["nieuw-west", "masterplan nieuw-west", "osdorp", "geuzenveld", "slotervaart"],
-    "masterplan zuidoost":   ["zuidoost", "masterplan zuidoost", "bijlmer", "amsterdam-zuidoost", "gaasperdam"],
-    "stadsdeel zuidoost":    ["zuidoost", "stadsdeel zuidoost", "bijlmer", "amsterdam-zuidoost"],
-}
+from onderwerpen import SYNONIEMEN  # gedeeld met mail en alerts
 
 
 @app.post("/api/briefing")
@@ -532,16 +492,18 @@ async def api_dagelijkse_update(background_tasks: BackgroundTasks, token: str = 
 
 
 @app.post("/api/dagelijkse-briefing")
-async def api_dagelijkse_briefing(background_tasks: BackgroundTasks, token: str = Form(...)):
+async def api_dagelijkse_briefing(background_tasks: BackgroundTasks, token: str = Form(...),
+                                  test_email: str = Form(default="")):
+    """Verstuurt de briefing. Met test_email: alleen naar dat adres, zonder items als gemaild te markeren."""
     if token != os.environ.get("SCRAPE_TOKEN", ""):
         return {"error": "Ongeldig token"}
 
     def run_briefing():
         from dagelijkse_briefing import run
-        run()
+        run(alleen_email=test_email or None, test=bool(test_email))
 
     background_tasks.add_task(run_briefing)
-    return {"status": "briefing verstuurd"}
+    return {"status": "briefing gestart", "test_email": test_email or None}
 
 
 @app.post("/api/dagelijks")

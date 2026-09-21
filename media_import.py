@@ -7,7 +7,9 @@ Gebruik:
 """
 
 import hashlib
+import re
 import time
+from datetime import date, timedelta
 import xml.etree.ElementTree as ET
 import requests
 import database as db
@@ -39,6 +41,10 @@ QUERIES = [
 
 RSS_URL = "https://news.google.com/rss/search?q={query}&hl=nl&gl=NL&ceid=NL:nl"
 
+# Geen journalistieke bron: partij- en overheidssites en persberichtenkanalen
+BRON_UITSLUITEN = {"d66", "vvd", "groenlinks", "pvda", "sp", "cda", "ja21", "bij1", "volt", "denk", "pvv",
+                   "rijksoverheid", "rijksoverheid.nl", "tweede kamer", "persberichten", "nieuws.nl"}
+
 
 def haal_feed(query: str) -> list[dict]:
     url = RSS_URL.format(query=requests.utils.quote(query))
@@ -55,11 +61,12 @@ def haal_feed(query: str) -> list[dict]:
             bron = bron_el.text if bron_el is not None else "Onbekend"
             desc = item.findtext("description", "").strip()
             # Verwijder HTML tags uit description
-            import re
             desc = re.sub(r"<[^>]+>", "", desc)[:300]
 
             if not titel or not link:
                 continue
+            # Google News plakt " - Bron" achter de kop
+            titel = re.sub(r"\s+-\s+[^-]{2,40}$", "", titel).strip() or titel
 
             # Datum parsen
             datum = None
@@ -72,7 +79,12 @@ def haal_feed(query: str) -> list[dict]:
                     except ValueError:
                         continue
 
-            extern_id = hashlib.md5(link.encode()).hexdigest()
+            if datum and datum < (date.today() - timedelta(days=7)).isoformat():
+                continue  # Google News levert soms oude artikelen
+            if bron.strip().lower() in BRON_UITSLUITEN:
+                continue
+            # Ontdubbelen op genormaliseerde titel i.p.v. link (zelfde artikel, andere redirect)
+            extern_id = hashlib.md5(re.sub(r"[^a-z0-9]", "", titel.lower()).encode()).hexdigest()
             items.append({
                 "extern_id": extern_id,
                 "bron": bron,
